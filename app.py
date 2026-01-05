@@ -31,8 +31,14 @@ st.markdown("""
     }
     
     /* Main Background */
-    .main {
+    .stApp {
         background: linear-gradient(135deg, #f5f7fa 0%, #e8f0fe 100%);
+        color: #1f2937;
+    }
+    
+    /* Force text color for headers and paragraphs in main area */
+    .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6, .stApp p, .stApp li, .stApp span {
+        color: #1f2937;
     }
     
     /* Header Styling */
@@ -248,8 +254,8 @@ def is_small_retail_shop(company):
     
     return False
 
-def get_employee_count_and_hcm_signal(company_name, api_key):
-    """Searches Google for LinkedIn employee count and detects HCM signals."""
+def get_employee_count(company_name, api_key):
+    """Searches Google for LinkedIn employee count."""
     url = "https://google.serper.dev/search"
     payload = json.dumps({
         "q": f"{company_name} linkedin employee count",
@@ -266,7 +272,7 @@ def get_employee_count_and_hcm_signal(company_name, api_key):
         
         organic = data.get("organic", [])
         if not organic:
-            return None, False
+            return None
             
         snippet = organic[0].get("snippet", "")
         title = organic[0].get("title", "")
@@ -284,16 +290,10 @@ def get_employee_count_and_hcm_signal(company_name, api_key):
             except ValueError:
                 emp_count = None
         
-        # Detect HCM signals (hiring/growth intent)
-        hcm_keywords = ['hiring', 'recruitment', 'expansion', 'growing', 'talent acquisition', 
-                        'job openings', 'careers', 'we are hiring', 'join our team']
-        
-        is_high_intent = any(keyword in full_text.lower() for keyword in hcm_keywords)
-        
-        return emp_count, is_high_intent
+        return emp_count
         
     except Exception as e:
-        return None, False
+        return None
 
 # ==========================================
 # STREAMLIT UI
@@ -305,16 +305,18 @@ with st.sidebar:
     st.markdown("### 📍 Search Settings")
     st.markdown("")
     
-    pincode = st.text_input(
-        "Enter Pincode",
-        value="560001",
-        placeholder="Enter pincode",
-        help="Enter the pincode to search for companies"
-    )
-    
-    st.markdown("")
-    
-    if st.button("🚀 Start Search", type="primary"):
+    with st.form(key='search_form'):
+        pincode = st.text_input(
+            "Enter Pincode",
+            value="560001",
+            placeholder="Enter pincode",
+            help="Enter the pincode to search for companies"
+        )
+        
+        st.markdown("")
+        submit_button = st.form_submit_button("🚀 Start Search", type="primary")
+
+    if submit_button:
         if not pincode:
             st.error("⚠️ Please enter a Pincode.")
         else:
@@ -341,12 +343,11 @@ with st.sidebar:
                 for i, company in enumerate(quality_companies):
                     status_text.text(f"📊 Analyzing: {company['Company Name'][:30]}...")
                     
-                    emp_count, is_high_intent = get_employee_count_and_hcm_signal(company['Company Name'], SERPER_API_KEY)
+                    emp_count = get_employee_count(company['Company Name'], SERPER_API_KEY)
                     
                     # Only add to results if employee count >= 80
                     if emp_count is not None and emp_count >= 80:
                         company["Employee Count"] = emp_count
-                        company["High Intent"] = "✅ Yes" if is_high_intent else "No"
                         enriched_data.append(company)
                     else:
                         skipped_count += 1
@@ -355,7 +356,16 @@ with st.sidebar:
                     time.sleep(0.1)
                 
                 if enriched_data:
-                    st.session_state["serper_data"] = pd.DataFrame(enriched_data)
+                    df_results = pd.DataFrame(enriched_data)
+                    # Reorder columns for better visibility
+                    column_order = [
+                        "Company Name", "Type", "Employee Count", 
+                        "Website", "Phone Number", "Address", 
+                        "Rating", "Reviews"
+                    ]
+                    # Filter for columns that actually exist in the data
+                    final_cols = [col for col in column_order if col in df_results.columns]
+                    st.session_state["serper_data"] = df_results[final_cols]
                     st.session_state["pincode"] = pincode
                     st.session_state["skipped_count"] = skipped_count
                 else:
@@ -419,6 +429,7 @@ if "serper_data" in st.session_state:
     st.markdown("")
     col_download1, col_download2, col_download3 = st.columns([2, 1, 2])
     
+
     with col_download2:
         csv = df.to_csv(index=False).encode('utf-8')
         st.download_button(
@@ -428,4 +439,35 @@ if "serper_data" in st.session_state:
             mime='text/csv',
             use_container_width=True
         )
+
+else:
+    # Empty State / Landing Page
+    st.markdown("")
+    st.markdown("")
+    st.markdown("")
+    
+    st.markdown("<h1 style='text-align: center; color: #1e40af;'>Company Discovery Tool 🔍</h1>", unsafe_allow_html=True)
+    st.markdown("<p class='subtitle'>Find businesses and get contact details in seconds.</p>", unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.info("👈 **Start via the Sidebar**\n\n1.  **Enter a Pincode** (e.g., 560001)\n2.  Click **Start Search**\n3.  Get enriched data instantly!")
+    
+    # Optional: Add some visual elements or features preview
+    st.markdown("")
+    st.markdown("---")
+    
+    col_f1, col_f2, col_f3 = st.columns(3)
+    
+    with col_f1:
+        st.markdown("### 📍 **Smart Search**")
+        st.write("Targeted search combining Maps & Search APIs to find real businesses, not just listings.")
+
+    with col_f2:
+        st.markdown("### 👥 **Employee Data**")
+        st.write("Enrich results with LinkedIn employee counts to identify established growing companies.")
+
+    with col_f3:
+        st.markdown("### ⚡ **Data Export**")
+        st.write("Export your findings directly to CSV for your sales or marketing pipelines.")
 
