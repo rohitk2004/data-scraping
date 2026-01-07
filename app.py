@@ -15,7 +15,7 @@ st.set_page_config(
 )
 
 # Hidden API Key (Not shown in UI)
-SERPER_API_KEY = "742d04fef1125feb19ad7b6123f3e8852d0fee4f"
+SERPER_API_KEY = "fafa9ba8f3e9438106a8a70c29a84f2538597fea"
 
 # ==========================================
 # CUSTOM CSS - BLUE & WHITE PROFESSIONAL THEME
