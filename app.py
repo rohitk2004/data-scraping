@@ -617,6 +617,15 @@ elif "discovered_data" in st.session_state and "enriched_data" not in st.session
         use_container_width=True
     )
     
+    # Download Raw Discovery Data
+    csv_discovery = pd.DataFrame(data).to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="📥 Download All Results (CSV)",
+        data=csv_discovery,
+        file_name=f'discovered_leads_{pincode_display}_{int(time.time())}.csv',
+        mime='text/csv'
+    )
+    
     # Button to proceed
     selected_indices = edited_df[edited_df["Enrich"]].index
     num_selected = len(selected_indices)
