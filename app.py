@@ -262,22 +262,20 @@ def get_50_companies_from_serper(pincode, api_key):
                     phone = place.get("phoneNumber", "N/A")
                     
                     if cid not in seen_ids:
-                        if is_mobile_number(phone):
-                            seen_ids.add(cid)
-                            all_results.append({
-                                "Company Name": place.get("title"),
-                                "Address": place.get("address"),
-                                "Phone Number": phone,
-                                "Website": place.get("website", "N/A"),
-                                "Rating": place.get("rating", "N/A"),
-                                "Type": place.get("type", "N/A"),
-                                "Category": category, 
-                                "Directors": [], 
-                                "Lead Score": 0,
-                                "Tier": "Standard" 
-                            })
-                        else:
-                            landlines_filtered += 1
+                        # Include all companies regardless of phone type
+                        seen_ids.add(cid)
+                        all_results.append({
+                            "Company Name": place.get("title"),
+                            "Address": place.get("address"),
+                            "Phone Number": phone,
+                            "Website": place.get("website", "N/A"),
+                            "Rating": place.get("rating", "N/A"),
+                            "Type": place.get("type", "N/A"),
+                            "Category": category, 
+                            "Directors": [], 
+                            "Lead Score": 0,
+                            "Tier": "Standard" 
+                        })
             except Exception as e:
                 pass
             
@@ -285,7 +283,7 @@ def get_50_companies_from_serper(pincode, api_key):
             
     # 2. Fallback: Generic Search if results are low
     if len(all_results) < 5:
-        # st.toast("Switching to generic search to find more mobile numbers...")
+        # st.toast("Switching to generic search to find more results...")
         url = "https://google.serper.dev/places"
         # Try generic "companies"
         payload = json.dumps({
@@ -301,22 +299,19 @@ def get_50_companies_from_serper(pincode, api_key):
                 cid = place.get("cid") or place.get("title")
                 phone = place.get("phoneNumber", "N/A")
                 if cid not in seen_ids:
-                     if is_mobile_number(phone):
-                        seen_ids.add(cid)
-                        all_results.append({
-                            "Company Name": place.get("title"),
-                            "Address": place.get("address"),
-                            "Phone Number": phone,
-                            "Website": place.get("website", "N/A"),
-                            "Rating": place.get("rating", "N/A"),
-                            "Type": place.get("type", "N/A"),
-                            "Category": "General", 
-                            "Directors": [], 
-                            "Lead Score": 0,
-                            "Tier": "Standard" 
-                        })
-                     else:
-                        landlines_filtered += 1
+                    seen_ids.add(cid)
+                    all_results.append({
+                        "Company Name": place.get("title"),
+                        "Address": place.get("address"),
+                        "Phone Number": phone,
+                        "Website": place.get("website", "N/A"),
+                        "Rating": place.get("rating", "N/A"),
+                        "Type": place.get("type", "N/A"),
+                        "Category": "General", 
+                        "Directors": [], 
+                        "Lead Score": 0,
+                        "Tier": "Standard" 
+                    })
         except:
             pass
             
