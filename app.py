@@ -25,129 +25,131 @@ SERPER_API_KEY = "fafa9ba8f3e9438106a8a70c29a84f2538597fea"
 # ==========================================
 st.markdown("""
 <style>
-    /* Import Google Fonts */
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+    /* Classic Corporate Theme */
     
     /* Global Styles */
-    * {
-        font-family: 'Plus Jakarta Sans', sans-serif;
-    }
-    
-    /* Main Background - Clean Low-Contrast */
-    .stApp {
-        background-color: #f8fafc;
-        color: #0f172a;
-    }
-    
-    /* Header Styling */
-    h1 {
-        color: #0f172a;
-        font-weight: 800;
-        letter-spacing: -0.02em;
-    }
-    
-    h2, h3 {
-        color: #334155;
-        font-weight: 600;
-        letter-spacing: -0.01em;
-    }
-    
-    /* Sidebar - Soft Modern Look */
-    [data-testid="stSidebar"] {
+    body {
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
         background-color: #ffffff;
-        border-right: 1px solid #e2e8f0;
+        color: #333333;
     }
     
-    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
-        color: #0f172a;
+    .stApp {
+        background-color: #fcefe9; /* Very subtle warm tint or keep white */
+        background: #ffffff;
     }
     
-    /* Input Fields */
-    .stTextInput input {
-        border-radius: 8px;
-        border: 1px solid #cbd5e1;
-        padding: 0.75rem;
-    }
-    
-    .stTextInput input:focus {
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-    }
-    
-    /* Primary Button */
-    .stButton > button[kind="primary"] {
-        background: #2563eb;
-        color: white;
-        border: none;
-        border-radius: 8px;
+    /* Headers - Classic & Professional */
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Georgia', serif; /* Classic Serif for headers */
+        color: #2c3e50; /* Dark Blue-Gray, not black */
         font-weight: 600;
-        padding: 0.75rem 1.5rem;
-        transition: all 0.2s;
-    }
-    
-    .stButton > button[kind="primary"]:hover {
-        background: #1d4ed8;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
-    }
-    
-    /* Result Card Containers */
-    [data-testid="stVerticalBlock"] > [style*="flex-direction: column;"] > [data-testid="stVerticalBlock"] {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 12px;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
-        margin-bottom: 1rem;
-        transition: box-shadow 0.2s;
-    }
-    
-    /* Hover effect for cards */
-    [data-testid="stVerticalBlock"] > [style*="flex-direction: column;"] > [data-testid="stVerticalBlock"]:hover {
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-    }
-
-    /* DataFrame Styling */
-    [data-testid="stDataFrame"] {
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-    }
-    
-    /* Expander Styling */
-    .streamlit-expanderHeader {
-        background-color: #f1f5f9;
-        border-radius: 8px;
-        color: #334155;
-        font-weight: 500;
-    }
-    
-    /* Tier 1 Badge Styling */
-    .tier-badge {
-        background-color: #fef2f2;
-        color: #dc2626;
-        padding: 4px 12px;
-        border-radius: 9999px;
-        font-size: 0.75rem;
-        font-weight: 700;
-        border: 1px solid #fecaca;
-        display: inline-block;
         margin-bottom: 0.5rem;
     }
     
-    /* Divider */
-    hr {
-        margin: 1.5rem 0;
-        border-color: #e2e8f0;
+    h1 {
+        font-size: 2.2rem;
+        border-bottom: 2px solid #eaeaea;
+        padding-bottom: 1rem;
+        margin-bottom: 1.5rem;
+        text-align: center;
     }
     
-    /* Metric Value */
+    /* Sidebar */
+    [data-testid="stSidebar"] {
+        background-color: #f8f9fa; /* Light Gray */
+        border-right: 1px solid #dee2e6;
+    }
+    
+    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
+        color: #2c3e50;
+        font-family: 'Helvetica Neue', sans-serif; /* Sidebar headers often read better sans-serif */
+        font-size: 1.2rem;
+    }
+    
+    /* Input Fields - Classic Definition */
+    .stTextInput input {
+        border: 1px solid #ced4da;
+        border-radius: 4px; /* Slightly square corners */
+        padding: 10px;
+        color: #495057;
+        background-color: #fff;
+    }
+    
+    .stTextInput input:focus {
+        border-color: #80bdff;
+        box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+    }
+    
+    /* Buttons - Standard Bootstrap-style */
+    .stButton > button[kind="primary"] {
+        background-color: #0056b3; /* Classic Navy Blue */
+        color: white;
+        border-radius: 4px;
+        border: none;
+        padding: 0.6rem 1.2rem;
+        font-weight: 500;
+        font-family: 'Helvetica Neue', sans-serif;
+    }
+    
+    .stButton > button[kind="primary"]:hover {
+        background-color: #004494;
+    }
+    
+    /* Result Cards - Boxed Layout */
+    [data-testid="stVerticalBlock"] > [style*="flex-direction: column;"] > [data-testid="stVerticalBlock"] {
+        background: #ffffff;
+        border: 1px solid #e0e0e0;
+        border-radius: 6px;
+        padding: 20px; /* Increased padding to prevent overlap */
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05); /* Very subtle shadow */
+        margin-bottom: 1.5rem;
+    }
+    
+    /* Metrics/Text Adjustments */
     [data-testid="stMetricValue"] {
-        color: #0f172a;
-        font-weight: 700;
+        font-family: 'Georgia', serif;
+        color: #0056b3;
     }
     
-    [data-testid="stMetricLabel"] {
-        color: #64748b;
+    p, li, span {
+        line-height: 1.6; /* Better readability */
+        font-size: 16px;
+    }
+    
+    /* Links */
+    a {
+        color: #0056b3;
+        text-decoration: none;
+    }
+    a:hover {
+        text-decoration: underline;
+    }
+    
+    /* Expander */
+    .streamlit-expanderHeader {
+        background-color: #f8f9fa;
+        border: 1px solid #dfdfdf;
+        border-radius: 4px;
+        color: #333;
+    }
+    
+    /* Tier Badge - Simple Label */
+    .tier-badge {
+        background-color: #e7f1ff;
+        color: #0056b3;
+        border: 1px solid #b3d7ff;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    hr {
+        margin: 2rem 0;
+        border-top: 1px solid #eee;
     }
 </style>
 """, unsafe_allow_html=True)
