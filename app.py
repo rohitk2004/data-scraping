@@ -25,131 +25,144 @@ SERPER_API_KEY = "fafa9ba8f3e9438106a8a70c29a84f2538597fea"
 # ==========================================
 st.markdown("""
 <style>
-    /* Classic Corporate Theme */
+    /* High Contrast / Ultra Clean Theme */
     
     /* Global Styles */
-    body {
-        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    body, .stApp {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         background-color: #ffffff;
-        color: #333333;
+        color: #000000 !important; /* Force Black Text */
     }
     
-    .stApp {
-        background-color: #fcefe9; /* Very subtle warm tint or keep white */
-        background: #ffffff;
-    }
-    
-    /* Headers - Classic & Professional */
+    /* Headers */
     h1, h2, h3, h4, h5, h6 {
-        font-family: 'Georgia', serif; /* Classic Serif for headers */
-        color: #2c3e50; /* Dark Blue-Gray, not black */
-        font-weight: 600;
-        margin-bottom: 0.5rem;
+        color: #000000 !important;
+        font-weight: 700;
+        margin-bottom: 0.75rem;
     }
     
     h1 {
-        font-size: 2.2rem;
-        border-bottom: 2px solid #eaeaea;
-        padding-bottom: 1rem;
-        margin-bottom: 1.5rem;
+        border-bottom: 2px solid #000;
+        padding-bottom: 0.5rem;
+        margin-bottom: 2rem;
         text-align: center;
+        text-transform: uppercase;
+        letter-spacing: 1px;
     }
     
     /* Sidebar */
     [data-testid="stSidebar"] {
-        background-color: #f8f9fa; /* Light Gray */
-        border-right: 1px solid #dee2e6;
+        background-color: #f4f4f5; /* Very Light Gray */
+        border-right: 1px solid #d4d4d8;
     }
     
-    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
-        color: #2c3e50;
-        font-family: 'Helvetica Neue', sans-serif; /* Sidebar headers often read better sans-serif */
-        font-size: 1.2rem;
+    [data-testid="stSidebar"] * {
+        color: #000000 !important;
     }
     
-    /* Input Fields - Classic Definition */
+    /* Input Fields */
     .stTextInput input {
-        border: 1px solid #ced4da;
-        border-radius: 4px; /* Slightly square corners */
-        padding: 10px;
-        color: #495057;
-        background-color: #fff;
+        border: 1px solid #000000;
+        border-radius: 4px;
+        padding: 0.5rem;
+        color: #000000;
+        background-color: #ffffff;
     }
     
     .stTextInput input:focus {
-        border-color: #80bdff;
-        box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+        border-color: #000000;
+        box-shadow: 0 0 0 1px #000000;
     }
     
-    /* Buttons - Standard Bootstrap-style */
-    .stButton > button[kind="primary"] {
-        background-color: #0056b3; /* Classic Navy Blue */
-        color: white;
-        border-radius: 4px;
+    .stTextInput label {
+        color: #000000 !important;
+        font-weight: 600;
+    }
+    
+    /* Buttons */
+    .stButton > button {
+        background-color: #000000;
+        color: #ffffff !important;
         border: none;
-        padding: 0.6rem 1.2rem;
-        font-weight: 500;
-        font-family: 'Helvetica Neue', sans-serif;
+        border-radius: 4px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        transition: opacity 0.2s;
     }
     
-    .stButton > button[kind="primary"]:hover {
-        background-color: #004494;
+    .stButton > button:hover {
+        background-color: #333333;
+        color: #ffffff !important;
+        border-color: #000000;
     }
     
-    /* Result Cards - Boxed Layout */
+    /* Result Cards */
     [data-testid="stVerticalBlock"] > [style*="flex-direction: column;"] > [data-testid="stVerticalBlock"] {
-        background: #ffffff;
-        border: 1px solid #e0e0e0;
-        border-radius: 6px;
-        padding: 20px; /* Increased padding to prevent overlap */
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05); /* Very subtle shadow */
-        margin-bottom: 1.5rem;
+        background-color: #ffffff;
+        border: 1px solid #e5e5e5; /* Subtle border */
+        border-radius: 0px; /* Sharp corners */
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        box-shadow: none !important; /* Flat look */
+    }
+
+    /* Paragraphs and Text */
+    p, li, span, div {
+        color: #000000;
+        line-height: 1.5;
     }
     
-    /* Metrics/Text Adjustments */
+    /* Metrics */
     [data-testid="stMetricValue"] {
-        font-family: 'Georgia', serif;
-        color: #0056b3;
+        color: #000000 !important;
+        font-weight: 800;
     }
     
-    p, li, span {
-        line-height: 1.6; /* Better readability */
-        font-size: 16px;
+    [data-testid="stMetricLabel"] {
+        color: #000000 !important;
+        opacity: 0.7;
     }
     
     /* Links */
     a {
-        color: #0056b3;
-        text-decoration: none;
-    }
-    a:hover {
+        color: #000000 !important;
         text-decoration: underline;
+        font-weight: 600;
+    }
+    
+    /* Tier Badge */
+    .tier-badge {
+        background-color: #000000;
+        color: #ffffff !important;
+        padding: 4px 8px;
+        font-size: 0.8rem;
+        font-weight: bold;
+        text-transform: uppercase;
+        display: inline-block;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Divider */
+    hr {
+        border-color: #000000;
+        opacity: 0.1;
+        margin: 2rem 0;
     }
     
     /* Expander */
     .streamlit-expanderHeader {
-        background-color: #f8f9fa;
-        border: 1px solid #dfdfdf;
-        border-radius: 4px;
-        color: #333;
+        color: #000000 !important;
+        font-weight: 600;
+        background-color: #f9f9f9;
+        border: 1px solid #ddd;
     }
     
-    /* Tier Badge - Simple Label */
-    .tier-badge {
-        background-color: #e7f1ff;
-        color: #0056b3;
-        border: 1px solid #b3d7ff;
-        padding: 2px 8px;
+    /* Form Label Help */
+    [data-testid="stForm"] {
+        border: 1px solid #ddd;
+        padding: 1rem;
         border-radius: 4px;
-        font-size: 0.8rem;
-        font-weight: bold;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    
-    hr {
-        margin: 2rem 0;
-        border-top: 1px solid #eee;
     }
 </style>
 """, unsafe_allow_html=True)
