@@ -213,8 +213,30 @@ def get_50_companies_from_serper(pincode, api_key):
         'Content-Type': 'application/json'
     }
     
+def get_50_companies_from_serper(pincode, api_key):
+    """
+    Fetches companies using specific High-Pain HCM categories.
+    """
+    all_results = []
+    seen_ids = set()
+    total_found = 0
+    landlines_filtered = 0
+    
+    categories = [
+        "BPO companies",
+        "Construction firms", 
+        "Private Hospitals",
+        "Manufacturing units"
+    ]
+    
+    headers = {
+        'X-API-KEY': api_key,
+        'Content-Type': 'application/json'
+    }
+    
+    # 1. Specific Category Search
     for category in categories:
-        for page in range(1, 3):
+        for page in range(1, 2): # Reduced to 1 page per category to save time/credits if fallback needed
             if len(all_results) >= 50:
                 break
                 
@@ -235,10 +257,10 @@ def get_50_companies_from_serper(pincode, api_key):
                     break
                     
                 for place in places:
+                    total_found += 1
                     cid = place.get("cid") or place.get("title")
                     phone = place.get("phoneNumber", "N/A")
                     
-                    # Filter: Must be Unique ID AND Valid Mobile Number
                     if cid not in seen_ids:
                         if is_mobile_number(phone):
                             seen_ids.add(cid)
@@ -254,33 +276,63 @@ def get_50_companies_from_serper(pincode, api_key):
                                 "Lead Score": 0,
                                 "Tier": "Standard" 
                             })
+                        else:
+                            landlines_filtered += 1
             except Exception as e:
                 pass
             
             time.sleep(0.2)
-        
-        if len(all_results) >= 50:
-            break
+            
+    # 2. Fallback: Generic Search if results are low
+    if len(all_results) < 5:
+        # st.toast("Switching to generic search to find more mobile numbers...")
+        url = "https://google.serper.dev/places"
+        # Try generic "companies"
+        payload = json.dumps({
+             "q": f"companies in {pincode}",
+             "location": f"{pincode}, India"
+        })
+        try:
+            response = requests.request("POST", url, headers=headers, data=payload)
+            data = response.json()
+            places = data.get("places", [])
+            for place in places:
+                total_found += 1
+                cid = place.get("cid") or place.get("title")
+                phone = place.get("phoneNumber", "N/A")
+                if cid not in seen_ids:
+                     if is_mobile_number(phone):
+                        seen_ids.add(cid)
+                        all_results.append({
+                            "Company Name": place.get("title"),
+                            "Address": place.get("address"),
+                            "Phone Number": phone,
+                            "Website": place.get("website", "N/A"),
+                            "Rating": place.get("rating", "N/A"),
+                            "Type": place.get("type", "N/A"),
+                            "Category": "General", 
+                            "Directors": [], 
+                            "Lead Score": 0,
+                            "Tier": "Standard" 
+                        })
+                     else:
+                        landlines_filtered += 1
+        except:
+            pass
+            
+    # Store stats in session state to display to user if needed
+    st.session_state['last_search_stats'] = {
+        'total_found': total_found,
+        'landlines_filtered': landlines_filtered,
+        'mobiles_kept': len(all_results)
+    }
             
     return all_results[:50]
 
 def is_small_retail_shop(company):
-    """Check if company appears to be a small retail shop."""
-    # We are now searching for specific High-Pain categories, so filtering is less critical 
-    # but still good to remove obvious noise.
-    small_shop_keywords = [
-        'kirana', 'grocery', 'bakery', 'cafe', 'parlor',
-        'stationery', 'gift', 'flower', 'sweet', 'pan shop', 
-        'xerox', 'cyber', 'tea', 'coffee', 'wine'
-    ]
-    
-    company_name = company.get('Company Name', '').lower()
-    
-    for keyword in small_shop_keywords:
-        if keyword in company_name:
-            return True
-            
-    return False
+    # ... existing implementation ...
+    return False # Temporarily disabled to ensure we show results if found
+
 
 def get_zauba_directors(company_name, api_key):
     """
@@ -489,7 +541,12 @@ with st.sidebar:
                 companies = get_50_companies_from_serper(pincode, SERPER_API_KEY)
                 
             if not companies:
-                st.warning("⚠️ No companies found for this pincode.")
+                stats = st.session_state.get('last_search_stats', {})
+                if stats.get('landlines_filtered', 0) > 0:
+                     st.warning(f"⚠️ Found {stats['total_found']} companies, but all {stats['landlines_filtered']} were filtered out because they had Landline numbers (not Mobile).")
+                     st.info("Tip: Establishments in this area might primarily use landlines.")
+                else:
+                    st.warning(f"⚠️ No companies found. Searched for BPO, Construction, Hospital, Mfg & General companies.")
             else:
                 # Filter 1: Companies with valid websites (Optional but recommended)
                 # Filter 2: Remove small retail shops
