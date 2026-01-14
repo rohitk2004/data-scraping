@@ -26,147 +26,158 @@ SERPER_API_KEY = "fafa9ba8f3e9438106a8a70c29a84f2538597fea"
 st.markdown("""
 <style>
     /* Import Google Fonts */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
     
     /* Global Styles */
     * {
-        font-family: 'Inter', sans-serif;
+        font-family: 'Plus Jakarta Sans', sans-serif;
     }
     
-    /* Main Background */
+    /* Main Background - Clean Low-Contrast */
     .stApp {
-        background: linear-gradient(135deg, #f5f7fa 0%, #e8f0fe 100%);
-        color: #1f2937;
-    }
-    
-    /* Force text color for headers and paragraphs in main area */
-    .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6, .stApp p, .stApp li, .stApp span {
-        color: #1f2937;
+        background-color: #f8fafc;
+        color: #0f172a;
     }
     
     /* Header Styling */
     h1 {
-        color: #1e40af;
-        font-weight: 700;
-        font-size: 2.5rem;
-        margin-bottom: 0.5rem;
-        text-align: center;
-        background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
+        color: #0f172a;
+        font-weight: 800;
+        letter-spacing: -0.02em;
     }
     
-    /* Subtitle */
-    .subtitle {
-        text-align: center;
-        color: #64748b;
-        font-size: 1.1rem;
-        margin-bottom: 2rem;
-        font-weight: 400;
+    h2, h3 {
+        color: #334155;
+        font-weight: 600;
+        letter-spacing: -0.01em;
     }
     
-    /* Sidebar Styling */
+    /* Sidebar - Soft Modern Look */
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%);
+        background-color: #ffffff;
+        border-right: 1px solid #e2e8f0;
     }
     
-    [data-testid="stSidebar"] * {
-        color: white !important;
+    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
+        color: #0f172a;
     }
     
-    [data-testid="stSidebar"] .stTextInput input {
-        background-color: rgba(255, 255, 255, 0.95);
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        color: #1f2937 !important;
+    /* Input Fields */
+    .stTextInput input {
         border-radius: 8px;
+        border: 1px solid #cbd5e1;
         padding: 0.75rem;
     }
     
-    [data-testid="stSidebar"] .stTextInput input::placeholder {
-        color: rgba(31, 41, 55, 0.5) !important;
+    .stTextInput input:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
     }
     
-    /* Button Styling */
-    .stButton > button {
-        width: 100%;
-        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    /* Primary Button */
+    .stButton > button[kind="primary"] {
+        background: #2563eb;
         color: white;
         border: none;
-        border-radius: 12px;
-        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
         font-weight: 600;
-        font-size: 1rem;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        padding: 0.75rem 1.5rem;
+        transition: all 0.2s;
     }
     
-    .stButton > button:hover {
-        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
-        transform: translateY(-2px);
+    .stButton > button[kind="primary"]:hover {
+        background: #1d4ed8;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
     }
     
-    /* DataFrame Styling */
-    [data-testid="stDataFrame"] {
-        background: white;
-        border-radius: 12px;
-        padding: 1rem;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    }
-    
-    /* Metric Cards */
-    [data-testid="stMetricValue"] {
-        color: #1e40af;
-        font-weight: 700;
-    }
-    
-    /* Info Box */
-    .info-box {
+    /* Result Card Containers */
+    [data-testid="stVerticalBlock"] > [style*="flex-direction: column;"] > [data-testid="stVerticalBlock"] {
         background: white;
         padding: 1.5rem;
         border-radius: 12px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        border-left: 4px solid #3b82f6;
-        margin-bottom: 1.5rem;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+        margin-bottom: 1rem;
+        transition: box-shadow 0.2s;
     }
     
-    /* Download Button */
-    .stDownloadButton > button {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        color: white;
-        border: none;
-        border-radius: 12px;
-        padding: 0.75rem 1.5rem;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    /* Hover effect for cards */
+    [data-testid="stVerticalBlock"] > [style*="flex-direction: column;"] > [data-testid="stVerticalBlock"]:hover {
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    }
+
+    /* DataFrame Styling */
+    [data-testid="stDataFrame"] {
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
     }
     
-    .stDownloadButton > button:hover {
-        background: linear-gradient(135deg, #059669 0%, #047857 100%);
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
-        transform: translateY(-2px);
+    /* Expander Styling */
+    .streamlit-expanderHeader {
+        background-color: #f1f5f9;
+        border-radius: 8px;
+        color: #334155;
+        font-weight: 500;
     }
     
-    /* Progress Bar */
-    .stProgress > div > div {
-        background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+    /* Tier 1 Badge Styling */
+    .tier-badge {
+        background-color: #fef2f2;
+        color: #dc2626;
+        padding: 4px 12px;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        border: 1px solid #fecaca;
+        display: inline-block;
+        margin-bottom: 0.5rem;
     }
     
     /* Divider */
     hr {
-        margin: 2rem 0;
-        border: none;
-        height: 1px;
-        background: linear-gradient(90deg, transparent 0%, #cbd5e1 50%, transparent 100%);
+        margin: 1.5rem 0;
+        border-color: #e2e8f0;
+    }
+    
+    /* Metric Value */
+    [data-testid="stMetricValue"] {
+        color: #0f172a;
+        font-weight: 700;
+    }
+    
+    [data-testid="stMetricLabel"] {
+        color: #64748b;
     }
 </style>
 """, unsafe_allow_html=True)
 
+
 # ==========================================
 # API FUNCTIONS
 # ==========================================
+
+def is_mobile_number(phone):
+    """
+    Checks if a phone number is likely an Indian mobile number.
+    Mobile numbers usually start with 6, 7, 8, 9 (10 digits).
+    Landlines usually start with 0 or have STD codes.
+    """
+    if not phone or phone == "N/A":
+        return False
+        
+    # Remove junk characters
+    clean_num = ''.join(filter(str.isdigit, str(phone)))
+    
+    # Handle Country Code (+91)
+    if clean_num.startswith('91') and len(clean_num) > 10:
+        clean_num = clean_num[2:]
+        
+    # Mobile check: 10 digits, starts with 6-9
+    if len(clean_num) == 10 and clean_num[0] in ['6', '7', '8', '9']:
+        return True
+        
+    return False
 
 def get_50_companies_from_serper(pincode, api_key):
     """
@@ -187,11 +198,7 @@ def get_50_companies_from_serper(pincode, api_key):
         'Content-Type': 'application/json'
     }
     
-    # Iterate through categories instead of just pages
-    # We'll try to get ~15 results per category to ensure diversity within limit
-    
     for category in categories:
-        # Fetch up to 2 pages per category if needed
         for page in range(1, 3):
             if len(all_results) >= 50:
                 break
@@ -214,20 +221,24 @@ def get_50_companies_from_serper(pincode, api_key):
                     
                 for place in places:
                     cid = place.get("cid") or place.get("title")
+                    phone = place.get("phoneNumber", "N/A")
+                    
+                    # Filter: Must be Unique ID AND Valid Mobile Number
                     if cid not in seen_ids:
-                        seen_ids.add(cid)
-                        all_results.append({
-                            "Company Name": place.get("title"),
-                            "Address": place.get("address"),
-                            "Phone Number": place.get("phoneNumber", "N/A"),
-                            "Website": place.get("website", "N/A"),
-                            "Rating": place.get("rating", "N/A"),
-                            "Type": place.get("type", "N/A"),
-                            "Category": category, # Track source category
-                            "Directors": [], 
-                            "Lead Score": 0,
-                            "Tier": "Standard" 
-                        })
+                        if is_mobile_number(phone):
+                            seen_ids.add(cid)
+                            all_results.append({
+                                "Company Name": place.get("title"),
+                                "Address": place.get("address"),
+                                "Phone Number": phone,
+                                "Website": place.get("website", "N/A"),
+                                "Rating": place.get("rating", "N/A"),
+                                "Type": place.get("type", "N/A"),
+                                "Category": category, 
+                                "Directors": [], 
+                                "Lead Score": 0,
+                                "Tier": "Standard" 
+                            })
             except Exception as e:
                 pass
             
@@ -494,7 +505,15 @@ if "discovered_data" not in st.session_state and "enriched_data" not in st.sessi
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.info("👈 **Start via the Sidebar**\n\n1.  **Enter Pincode**\n2.  **Click Start Discovery**")
+        st.markdown("""
+        <div style="background-color: white; padding: 2rem; border-radius: 12px; border: 1px solid #e2e8f0; text-align: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+            <h3>� Ready to hunt?</h3>
+            <p style="color: #64748b; margin-bottom: 1.5rem;">Enter a pincode in the sidebar to uncover high-quality BPO, Manufacturing, and Healthcare leads.</p>
+            <div style="background-color: #f1f5f9; padding: 0.75rem; border-radius: 8px; font-size: 0.9rem; color: #475569;">
+                👈 <strong>Start in the Sidebar</strong>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
 # State: Discovery Results (Selection Phase)
 elif "discovered_data" in st.session_state and "enriched_data" not in st.session_state:
@@ -589,65 +608,66 @@ elif "enriched_data" in st.session_state:
     # Custom List View for "Button per Row" requirement
     for company in enriched:
         with st.container():
-            # Highlight Tier-1
-            if company.get("Tier") == "Tier-1 Priority":
-                st.markdown("##### 🔥 **TIER-1 PRIORITY STARTUP/LEAD**")
-                
-            c1, c2, c3 = st.columns([3, 2, 2])
+            # Layout: Title & Tier Badge
+            col_header, col_score = st.columns([0.7, 0.3])
+            with col_header:
+                st.markdown(f"### {company['Company Name']}")
+                if company.get("Tier") == "Tier-1 Priority":
+                     st.markdown('<span class="tier-badge">🔥 TIER-1 PRIORITY</span>', unsafe_allow_html=True)
+            
+            with col_score:
+                st.markdown(f"<div style='text-align: right'>{'⭐' * int(company['Lead Score'])}</div>", unsafe_allow_html=True)
+            
+            st.markdown("") # Spacer
+
+            c1, c2, c3 = st.columns([1, 1, 1])
             
             with c1:
-                st.subheader(company["Company Name"])
-                st.caption(f"Category: {company.get('Category', 'N/A')}")
+                st.caption("DETAILS")
                 st.write(f"🏢 {company['Address']}")
+                st.write(f"🏷️ {company.get('Category', 'N/A')}")
+                
+            with c2:
+                st.caption("METRICS")
+                st.write(f"👥 **Employees:** {company.get('Employee Count', 'N/A')}")
                 
                 links = []
                 if company.get("Website") != "N/A":
                     links.append(f"[Website]({company['Website']})")
                 if company.get("Has_LinkedIn"):
-                    links.append(f"✅ LinkedIn Verified")
-                
+                    links.append(f"✅ LinkedIn")
                 if links:
                     st.markdown(" | ".join(links))
                 
-            with c2:
-                score = company["Lead Score"]
-                st.write(f"**Lead Score:** {'⭐' * int(score)}")
-                st.write(f"**Employees:** {company.get('Employee Count', 'N/A')}")
-                st.write(f"**Tier:** {company.get('Tier', 'Standard')}")
-                
             with c3:
+                st.caption("DECISION MAKERS")
                 directors = company.get("Directors", [])
-                st.write("**Directors found:**")
                 if directors:
                     for d in directors:
-                        st.markdown(f"- {d}")
+                        st.write(f"• {d}")
                 else:
-                    st.caption("No directors found")
+                    st.write("No directors found")
                             
-            # Contact Reveal Section
-            with st.expander("🔍 Reveal Contact Details"):
+            # Contact Reveal Section inside the card
+            st.markdown("")
+            with st.expander("🔍 Find Contact Number"):
                 if not directors:
-                    st.warning("No director names found to search for.")
+                    st.warning("No director names available to search.")
                 else:
-                    # Create tabs for each director
-                    tabs = st.tabs([d for d in directors])
-                    
+                    st.markdown("Select a director to find their contact details:")
+                    cols = st.columns(len(directors))
                     for i, director in enumerate(directors):
-                        with tabs[i]:
-                            # Unique key for button
-                            btn_key = f"reveal_{company['Company Name']}_{director}"
-                            if st.button(f"Search Contact for {director}", key=btn_key):
-                                with st.spinner("Searching Google..."):
-                                    results = reveal_director_contact(director, company['Company Name'], SERPER_API_KEY)
-                                    if results:
-                                        for res in results:
-                                            st.markdown(f"**{res['title']}**")
-                                            st.markdown(res['snippet'])
-                                            st.markdown(f"🔗 [Link]({res['link']})")
-                                            st.divider()
-                                    else:
-                                        st.error("No direct contact info found.")
-            st.divider()
+                        # Use a simpler button layout
+                        if st.button(f"Search: {director}", key=f"btn_{company['Company Name']}_{i}"):
+                            with st.spinner(f"Searching for {director}..."):
+                                results = reveal_director_contact(director, company['Company Name'], SERPER_API_KEY)
+                                if results:
+                                    for res in results:
+                                        st.success(f"**Found:** {res['title']}")
+                                        st.caption(res['snippet'])
+                                else:
+                                    st.error("No direct contact info found.")
+            # st.divider() removed for cleaner look
             
     # Export Option
     df_export = pd.DataFrame(enriched)
