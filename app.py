@@ -153,16 +153,6 @@ st.markdown("""
     }
     
     /* Tier Badge */
-    .tier-badge {
-        background-color: #000000;
-        color: #ffffff !important;
-        padding: 4px 8px;
-        font-size: 0.8rem;
-        font-weight: bold;
-        text-transform: uppercase;
-        display: inline-block;
-        margin-bottom: 0.5rem;
-    }
     
     /* Divider */
     hr {
@@ -360,110 +350,7 @@ def find_website(company_name, api_key):
         pass
     return "N/A"
 
-def get_employee_count(company_name, api_key):
-    """
-    Searches Google for LinkedIn employee count.
-    Returns: (count, snippet_text, linkedin_url)
-    """
-    url = "https://google.serper.dev/search"
-    payload = json.dumps({
-        "q": f"{company_name} linkedin employee count",
-        "gl": "in"
-    })
-    headers = {
-        'X-API-KEY': api_key,
-        'Content-Type': 'application/json'
-    }
 
-    try:
-        response = requests.request("POST", url, headers=headers, data=payload)
-        data = response.json()
-        
-        organic = data.get("organic", [])
-        if not organic:
-            return None, "", None
-            
-        result = organic[0]
-        snippet = result.get("snippet", "")
-        title = result.get("title", "")
-        link = result.get("link", "")
-        full_text = snippet + " " + title
-        
-        # Extract employee count
-        emp_count = None
-        import re
-        match = re.search(r"([\d,]+)(?:\+|-\d+)?\s+employees", full_text, re.IGNORECASE)
-        if match:
-            count_str = match.group(1).replace(',', '')
-            try:
-                emp_count = int(count_str)
-            except ValueError:
-                emp_count = None
-        
-        return emp_count, snippet, link
-        
-    except Exception as e:
-        return None, "", None
-
-
-def reveal_director_contact(director_name, company_name, api_key):
-    """Searches for mobile number or contact info for a specific director."""
-    query = f"{director_name} {company_name} mobile phone number contact"
-    url = "https://google.serper.dev/search"
-    payload = json.dumps({
-        "q": query,
-        "gl": "in"
-    })
-    headers = {
-        'X-API-KEY': api_key,
-        'Content-Type': 'application/json'
-    }
-    
-    try:
-        response = requests.request("POST", url, headers=headers, data=payload)
-        data = response.json()
-        snippets = []
-        if "organic" in data:
-            for item in data["organic"][:3]: # Top 3 results
-                snippets.append({
-                    "title": item.get("title"),
-                    "snippet": item.get("snippet"),
-                    "link": item.get("link")
-                })
-        return snippets
-    except:
-        return []
-
-def calculate_lead_score(company):
-    """
-    Assign a "Gold Medal" to leads that have a Mobile Number, a Director Name, and a Website.
-    """
-    mobile = company.get('Mobile')
-    directors = company.get('Directors', [])
-    website = company.get('Website')
-    
-    score = 0
-    messages = []
-    
-    # Prerequisite: Mobile (already guaranteed by scraper, but checking)
-    if mobile and mobile != "N/A":
-        score += 1
-        
-    # Director
-    if directors and len(directors) > 0:
-        score += 1
-        
-    # Website
-    if website and website != "N/A":
-        score += 1
-        
-    # Gold Medal Condition: All 3 present
-    if score == 3:
-        return "🥇 GOLD MEDAL"
-    elif score == 2:
-        return "🥈 Silver"
-    else:
-        return "🥉 Bronze"
 
 # ==========================================
 # CORE LOGIC
@@ -491,9 +378,6 @@ def enrich_single_company(company):
              company["Startup"] = True
     
     company["Directors"] = directors
-    
-    # 4. Calculate Score
-    company["Score"] = calculate_lead_score(company)
     
     return company
 
@@ -618,12 +502,9 @@ else:
         for company in results:
             with st.container():
                 # Card Layout
-                c1, c2 = st.columns([0.8, 0.2])
-                with c1:
-                     st.subheader(company['Company'])
-                     st.caption(f"Source: {company.get('Source', 'Unknown')}")
-                with c2:
-                    st.markdown(f"### {company.get('Score', '')}")
+                # Card Layout
+                st.subheader(company['Company'])
+                st.caption(f"Source: {company.get('Source', 'Unknown')}")
                 
                 # Details Grid
                 col1, col2, col3 = st.columns(3)
