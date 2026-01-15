@@ -485,9 +485,9 @@ with st.sidebar:
     st.markdown("### ℹ️ How it Works")
     st.markdown("""
     1. **Data Sources**: Simultaneous search on **Justdial, IndiaMART, Sulekha**.
-    2. **Validation**: Only **Valid Mobile Numbers** (10 digits, starts 6-9) are kept. Landlines discarded.
+    2. **Validation**: **All Valid Phone Numbers** (Mobile & Landline) are captured.
     3. **Deep Research**: Visits **ZaubaCorp** & **Startup India** to find Directors/Founders.
-    4. **Scoring**: 🥇 **Gold Medal** assigned if Leads have Mobile + Director + Website.
+    4. **Scoring**: 🥇 **Gold Medal** assigned if Leads have Phone + Director + Website.
     """)
 
 # Main Content Area

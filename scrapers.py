@@ -28,25 +28,19 @@ def clean_phone(phone):
 
 def is_valid_mobile_string(phone_str):
     """
-    Validates if the phone string contains a valid Indian mobile number.
-    Returns the mobile number if valid, else None.
+    Validates and cleans phone string.
+    NOW: Accepts any valid-looking phone number (Mobile or Landline).
     """
     clean = clean_phone(phone_str)
     if not clean:
         return None
         
-    # Handle +91 or 0 prefix
+    # Handle +91
     if clean.startswith('91') and len(clean) > 10:
         clean = clean[2:]
-    elif clean.startswith('0') and len(clean) > 10:
-        clean = clean[1:]
         
-    # Strictly 10 digits
-    if len(clean) != 10:
-        return None
-        
-    # Starts with 6, 7, 8, 9
-    if clean[0] not in ['6', '7', '8', '9']:
+    # Length check: 8 to 12 digits (Landlines can be 11 with 0, Mobiles 10)
+    if len(clean) < 8 or len(clean) > 13:
         return None
         
     return clean
@@ -104,10 +98,10 @@ def extract_from_html_fuzzy(html, source_name, category):
         if len(text) < 20 or len(text) > 1000: # Filter too small/big blocks
             continue
             
-        # Check for phone number
-        phones = re.findall(r'(?:\+91|0)?\s?[6-9]\d{4}\s?\d{5}', text)
+        # Check for phone number (Mobile or Landline)
+        phones = re.findall(r'(?:\+91|0)?\s?\d{2,5}[\s-]?\d{6,8}', text)
         if not phones:
-            phones = re.findall(r'\b[6-9]\d{9}\b', text)
+            phones = re.findall(r'\b\d{8,12}\b', text)
             
         valid_mobile = None
         for p in phones:
@@ -176,10 +170,10 @@ def google_proxy_search(category, pincode, source_domain, api_key):
                 # Combine title and snippet for phone extraction
                 full_text = f"{title} {snippet}"
                 
-                # Extract Phone
-                phones = re.findall(r'(?:\+91|0)?\s?[6-9]\d{4}\s?\d{5}', full_text)
+                # Extract Phone (Mobile or Landline)
+                phones = re.findall(r'(?:\+91|0)?\s?\d{2,5}[\s-]?\d{6,8}', full_text)
                 if not phones:
-                    phones = re.findall(r'\b[6-9]\d{9}\b', full_text)
+                     phones = re.findall(r'\b\d{8,12}\b', full_text)
                     
                 valid_mobile = None
                 for p in phones:
@@ -257,18 +251,72 @@ def scrape_sulekha(category, pincode, api_key=None):
         return extract_from_html_fuzzy(content, "Sulekha", category)
     return []
 
+def scrape_google_places(category, pincode, api_key):
+    """
+    Uses Serper Places API (Google Maps) - High Reliability Source.
+    """
+    if not api_key: 
+        return []
+        
+    results = []
+    url = "https://google.serper.dev/places"
+    # Try 2 pages to get up to 40 results
+    for page in range(1, 3):
+        payload = json.dumps({
+            "q": f"{category} in {pincode}",
+            "location": f"{pincode}, India",
+            "page": page
+        })
+        headers = {
+            'X-API-KEY': api_key,
+            'Content-Type': 'application/json'
+        }
+        
+        try:
+            response = requests.request("POST", url, headers=headers, data=payload)
+            data = response.json()
+            places = data.get("places", [])
+            
+            if not places:
+                break
+                
+            for place in places:
+                phone = place.get("phoneNumber")
+                
+                # Validation
+                valid_mobile = None
+                if phone:
+                    valid_mobile = is_valid_mobile_string(phone)
+                    
+                if valid_mobile:
+                     results.append({
+                        "Company": place.get("title"),
+                        "Category": category,
+                        "Mobile": valid_mobile,
+                        "Source": "Google Maps",
+                        "Raw_Phone": valid_mobile,
+                        "Website": place.get("website", "N/A")
+                    })
+        except Exception as e:
+            print(f"Places API Error: {e}")
+            
+    return results
+
 def multi_source_search(pincode, categories, api_key=None):
     """
-    Search all sources in parallel.
+    Search all sources in parallel: Justdial, IndiaMART, Sulekha, and Google Maps.
     """
     all_results = []
     
-    with ThreadPoolExecutor(max_workers=3) as executor:
+    with ThreadPoolExecutor(max_workers=5) as executor:
         futures = []
         for cat in categories:
+            # Add JD/IM/Sulekha
             futures.append(executor.submit(scrape_justdial, cat, pincode, api_key))
             futures.append(executor.submit(scrape_indiamart, cat, pincode, api_key))
             futures.append(executor.submit(scrape_sulekha, cat, pincode, api_key))
+            # Add Google Places (New Robust Source)
+            futures.append(executor.submit(scrape_google_places, cat, pincode, api_key))
             
         for future in as_completed(futures):
             try:
