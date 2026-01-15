@@ -465,9 +465,81 @@ def calculate_lead_score(company):
         return "🥉 Bronze"
 
 # ==========================================
-# STREAMLIT UI
+# CORE LOGIC
 # ==========================================
 
+def enrich_single_company(company):
+    """
+    Performs deep research on a single company:
+    1. Find Website
+    2. Find Directors (Zauba)
+    3. Find Founders (Startup India)
+    4. Calculate Score
+    """
+    # 1. Find Website
+    company["Website"] = find_website(company['Company'], SERPER_API_KEY)
+    
+    # 2. Get Directors (ZaubaCorp)
+    directors = get_zauba_directors(company['Company'], SERPER_API_KEY)
+    
+    # 3. Get Founders (Startup India) - if needed
+    if not directors:
+        founders = get_startup_india_founders(company['Company'], SERPER_API_KEY)
+        if founders:
+             directors.extend(founders)
+             company["Startup"] = True
+    
+    company["Directors"] = directors
+    
+    # 4. Calculate Score
+    company["Score"] = calculate_lead_score(company)
+    
+    return company
+
+def search_and_process(pincode):
+    """
+    1. Scrape Basic Data (Multi-Source)
+    2. Enrich ALL Data (Parallel)
+    """
+    # Phase 1: Discovery
+    status_box = st.status("🕵️ Phase 1: Scouting Companies...", expanded=True)
+    
+    categories = ["BPO", "Corporate House", "Hospital", "Manufacturing", "Manpower"]
+    raw_leads = multi_source_search(pincode, categories, SERPER_API_KEY)
+    
+    if not raw_leads:
+        status_box.update(label="⚠️ No companies found.", state="error")
+        return []
+        
+    status_box.update(label=f"✅ Found {len(raw_leads)} companies! Starting Deep Research...", state="running")
+    
+    # Phase 2: Deep Enrichment
+    enriched_results = []
+    total = len(raw_leads)
+    progress_bar = status_box.progress(0, text="Extracting Directors & Websites...")
+    
+    # Parallel Enrichment
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {executor.submit(enrich_single_company, company): company for company in raw_leads}
+        
+        completed_count = 0
+        for future in as_completed(futures):
+            try:
+                result = future.result()
+                enriched_results.append(result)
+            except Exception as e:
+                # If enrichment fails, just keep basic data
+                enriched_results.append(futures[future])
+                
+            completed_count += 1
+            progress_bar.progress(completed_count / total, text=f"Researched {completed_count}/{total} companies...")
+            
+    status_box.update(label="🚀 Mission Complete! All data ready.", state="complete", expanded=False)
+    return enriched_results
+
+# ==========================================
+# STREAMLIT UI
+# ==========================================
 
 # Sidebar
 with st.sidebar:
@@ -477,208 +549,103 @@ with st.sidebar:
     with st.form(key='search_form'):
         pincode = st.text_input(
             "Enter Pincode",
-            value="560001",
+            value="110017",
             placeholder="Enter pincode",
-            help="Enter the pincode to search for companies"
+            help="Enter the pincode to search and enrich companies"
         )
         
         st.markdown("")
-        submit_button = st.form_submit_button("🚀 Start Discovery", type="primary")
+        submit_button = st.form_submit_button("🚀 Start Master Search", type="primary")
 
     if submit_button:
         if not pincode:
             st.error("⚠️ Please enter a Pincode.")
         else:
             # Clear previous state
-            if "discovered_data" in st.session_state:
-                del st.session_state["discovered_data"]
-            if "enriched_data" in st.session_state:
-                del st.session_state["enriched_data"]
+            if "results" in st.session_state:
+                del st.session_state["results"]
                 
-            companies = discover_companies(pincode)
-                
-            if not companies:
-                st.warning(f"⚠️ No companies found in {pincode} related to HCM categories.")
-            else:
-                st.session_state["discovered_data"] = companies
-                st.session_state["pincode"] = pincode
-                st.rerun()
+            data = search_and_process(pincode)
+            st.session_state["results"] = data
+            st.session_state["pincode"] = pincode
+            # st.rerun() # No need to rerun, just continue render
 
     st.markdown("")
     st.divider()
     st.markdown("### ℹ️ How it Works")
     st.markdown("""
-    1. **Data Sources**: Simultaneous search on **Justdial, IndiaMART, Sulekha**.
-    2. **Validation**: **Valid Phones** (Mobiles & acceptable Landlines). Filters '01...' landlines.
-    3. **Deep Research**: Visits **ZaubaCorp** & **Startup India** to find Directors/Founders.
-    4. **Scoring**: 🥇 **Gold Medal** assigned if Leads have Phone + Director + Website.
+    1. **Scrape**: Jussdial, IndiaMART, Sulekha, Google Maps.
+    2. **Enrich**: Automatically finds **Directors** & **Websites** for EVERY company.
+    3. **Deliver**: One single list with all details.
     """)
 
 # Main Content Area
-
-# State: Landing Page
-if "discovered_data" not in st.session_state and "enriched_data" not in st.session_state:
+if "results" not in st.session_state:
     st.markdown("")
     st.markdown("")
     st.markdown("<h1 style='text-align: center; color: #1e40af;'>Zero-Cost Master Lead Engine 🚀</h1>", unsafe_allow_html=True)
-    st.markdown("<p class='subtitle'>Find HCM Sales Leads with Direct Mobile Numbers.</p>", unsafe_allow_html=True)
+    st.markdown("<p class='subtitle'>One click to find Companies, Mobiles, Directors & Websites.</p>", unsafe_allow_html=True)
     
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.markdown("""
-        <div style="background-color: white; padding: 2rem; border-radius: 12px; border: 1px solid #e2e8f0; text-align: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
-            <h3>🎯 Ready to hunt?</h3>
-            <p style="color: #64748b; margin-bottom: 1.5rem;">Enter a pincode to scrape Justdial, IndiaMART, and Sulekha instantly.</p>
-            <div style="background-color: #f1f5f9; padding: 0.75rem; border-radius: 8px; font-size: 0.9rem; color: #475569;">
-                👈 <strong>Start in the Sidebar</strong>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-# State: Discovery Results (Selection Phase)
-elif "discovered_data" in st.session_state and "enriched_data" not in st.session_state:
-    data = st.session_state["discovered_data"]
-    pincode_display = st.session_state.get("pincode", "")
+else:
+    # Results Display
+    results = st.session_state["results"]
+    pincode = st.session_state.get("pincode", "")
     
-    st.markdown(f"### 📋 Discovered Leads in {pincode_display}")
-    st.info(f"Found {len(data)} unique companies with valid mobile numbers.")
-    
-    # Create a DataFrame for selection
-    df_discovery = pd.DataFrame(data)
-    
-    # CSV Download for ALL Discovered Leads
-    csv_discovery = df_discovery.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="📥 Download All Discovered Leads (CSV)",
-        data=csv_discovery,
-        file_name=f'all_leads_{pincode_display}_{int(time.time())}.csv',
-        mime='text/csv'
-    )
-    
-    # Add a selection column (default True for top 10)
-    df_discovery.insert(0, "Enrich", False)
-    for idx in df_discovery.index[:10]:
-        df_discovery.at[idx, "Enrich"] = True
+    if not results:
+        st.warning(f"No results found for {pincode}.")
+    else:
+        st.markdown(f"### 💎 Master Lead List: {pincode} ({len(results)} Leads)")
         
-    # Display editable dataframe
-    edited_df = st.data_editor(
-        df_discovery,
-        column_config={
-            "Enrich": st.column_config.CheckboxColumn(
-                "Enrich?",
-                help="Select to find Directors & Website",
-                default=False,
-            ),
-            "Company": st.column_config.TextColumn("Company"),
-            "Category": st.column_config.TextColumn("Category"),
-            "Mobile": st.column_config.TextColumn("Mobile"),
-            "Source": st.column_config.TextColumn("Source"),
-        },
-        disabled=["Company", "Category", "Mobile", "Source"],
-        hide_index=True,
-        use_container_width=True
-    )
-    
-    # Button to proceed
-    selected_indices = edited_df[edited_df["Enrich"]].index
-    num_selected = len(selected_indices)
-    
-    if st.button(f"✨ Deep Research {num_selected} Companies", type="primary"):
-        if num_selected == 0:
-            st.error("Please select at least one company.")
-        else:
-            progress_bar = st.progress(0)
-            status_text = st.empty()
-            
-            enriched_companies = []
-            
-            # Loop through selected companies
-            for i, idx in enumerate(selected_indices):
-                company = data[idx]
-                status_text.text(f"Researching {i+1}/{num_selected}: {company['Company']}...")
-                
-                # 1. Find Website (if missing)
-                company["Website"] = find_website(company['Company'], SERPER_API_KEY)
-                
-                # 2. Get Directors (ZaubaCorp)
-                directors = get_zauba_directors(company['Company'], SERPER_API_KEY)
-                
-                # 3. Get Founders (Startup India) if no directors found or just to augment
-                if not directors:
-                    founders = get_startup_india_founders(company['Company'], SERPER_API_KEY)
-                    if founders:
-                         directors.extend(founders)
-                         company["Startup"] = True
-                
-                company["Directors"] = directors
-                
-                # 4. Calculate Score
-                company["Score"] = calculate_lead_score(company)
-                
-                enriched_companies.append(company)
-                progress_bar.progress((i + 1) / num_selected)
-                
-            st.session_state["enriched_data"] = enriched_companies
-            st.rerun()
-
-# State: Enriched Results
-elif "enriched_data" in st.session_state:
-    enriched = st.session_state["enriched_data"]
-    
-    st.markdown("### 💎 Master Lead List")
-    
-    if st.button("⬅️ Back"):
-        del st.session_state["enriched_data"]
-        st.rerun()
+        # CSV Export Logic
+        df_export = pd.DataFrame(results)
+        # Flatten lists for CSV
+        df_export["Directors"] = df_export["Directors"].apply(lambda x: ", ".join(x) if isinstance(x, list) else x)
         
-    st.divider()
-    
-    # Custom List View
-    for company in enriched:
-        with st.container():
-            # Header
-            c1, c2 = st.columns([0.8, 0.2])
-            with c1:
-                 st.subheader(company['Company'])
-                 st.caption(f"Source: {company.get('Source', 'Unknown')}")
-            with c2:
-                st.markdown(f"### {company.get('Score', '')}")
-            
-            # Details
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.markdown(f"**📱 Mobile:** `{company.get('Mobile')}`")
-                st.markdown(f"**🏷️ Category:** {company.get('Category')}")
+        csv = df_export.to_csv(index=False).encode('utf-8')
+        
+        st.download_button(
+            label=f"📥 Download Full Report ({len(results)} Companies)",
+            data=csv,
+            file_name=f'Master_Leads_{pincode}_{int(time.time())}.csv',
+            mime='text/csv',
+            type="primary"
+        )
+        
+        st.divider()
+        
+        # Detailed List View
+        for company in results:
+            with st.container():
+                # Card Layout
+                c1, c2 = st.columns([0.8, 0.2])
+                with c1:
+                     st.subheader(company['Company'])
+                     st.caption(f"Source: {company.get('Source', 'Unknown')}")
+                with c2:
+                    st.markdown(f"### {company.get('Score', '')}")
                 
-            with col2:
-                website = company.get('Website')
-                if website and website != "N/A":
-                    st.markdown(f"**🌐 Website:** [Link]({website})")
-                else:
-                    st.markdown("**🌐 Website:** N/A")
+                # Details Grid
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.markdown(f"**📱 Mobile:** `{company.get('Mobile')}`")
+                    st.markdown(f"**🏷️ Category:** {company.get('Category')}")
                     
-            with col3:
-                directors = company.get('Directors', [])
-                if directors:
-                    st.markdown("**🕴️ Directors/Founders:**")
-                    for d in directors:
-                        st.text(f"• {d}")
-                else:
-                    st.markdown("**🕴️ Directors:** Not Found")
-            
-            st.divider()
-            
-    # Export
-    df_export = pd.DataFrame(enriched)
-    # Flatten lists
-    df_export["Directors"] = df_export["Directors"].apply(lambda x: ", ".join(x) if isinstance(x, list) else x)
-    
-    csv = df_export.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="📥 Download Master Leads CSV",
-        data=csv,
-        file_name=f'master_leads_{int(time.time())}.csv',
-        mime='text/csv'
-    )
+                with col2:
+                    website = company.get('Website')
+                    if website and website != "N/A":
+                        st.markdown(f"**🌐 Website:** [Link]({website})")
+                    else:
+                        st.markdown("**🌐 Website:** N/A")
+                        
+                with col3:
+                    directors = company.get('Directors', [])
+                    if directors:
+                        st.markdown("**🕴️ Directors/Founders:**")
+                        for d in directors:
+                            st.text(f"• {d}")
+                    else:
+                        st.markdown("**🕴️ Directors:** Not Found")
+                
+                st.divider()
 
 
