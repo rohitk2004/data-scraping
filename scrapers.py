@@ -28,8 +28,10 @@ def clean_phone(phone):
 
 def is_valid_mobile_string(phone_str):
     """
-    Validates and cleans phone string.
-    NOW: Accepts any valid-looking phone number (Mobile or Landline).
+    Validates phone numbers.
+    - Drops Landlines starting with '01' (e.g. 011 Delhi).
+    - Keeps Mobiles starting with '0' (strips the 0).
+    - Keeps other valid numbers.
     """
     clean = clean_phone(phone_str)
     if not clean:
@@ -39,7 +41,20 @@ def is_valid_mobile_string(phone_str):
     if clean.startswith('91') and len(clean) > 10:
         clean = clean[2:]
         
-    # Length check: 8 to 12 digits (Landlines can be 11 with 0, Mobiles 10)
+    # Rule 1: Filter out Landlines starting with '01'
+    if clean.startswith('01'):
+        return None
+        
+    # Rule 2: Handle '0' prefix for Mobiles (e.g. 098...)
+    if clean.startswith('0'):
+        # Check if stripping '0' gives a valid 10-digit mobile (starts 6-9)
+        potential_mobile = clean[1:]
+        if len(potential_mobile) == 10 and potential_mobile[0] in ['6', '7', '8', '9']:
+            return potential_mobile
+        # If it's 0 + Landline (not 01, maybe 02?), keep it for now unless specific instruction.
+        # But typically we prefer returning the clean version.
+        
+    # Length check: 8 to 12 digits
     if len(clean) < 8 or len(clean) > 13:
         return None
         

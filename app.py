@@ -83,20 +83,27 @@ st.markdown("""
     
     /* Buttons */
     .stButton > button {
-        background-color: #000000;
-        color: #ffffff !important;
-        border: none;
+        background-color: #ffffff;
+        color: #000000 !important;
+        border: 1px solid #cccccc;
         border-radius: 4px;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        transition: opacity 0.2s;
+        transition: all 0.2s;
     }
     
     .stButton > button:hover {
-        background-color: #333333;
-        color: #ffffff !important;
+        background-color: #f2f2f2;
+        color: #000000 !important;
         border-color: #000000;
+    }
+    
+    /* Primary Button Override (Start Discovery, Enrich) */
+    .stButton > button[kind="primary"] {
+        background-color: #ff4b4b;
+        color: white !important;
+        border: none;
     }
     
     /* Result Cards */
@@ -485,7 +492,7 @@ with st.sidebar:
     st.markdown("### ℹ️ How it Works")
     st.markdown("""
     1. **Data Sources**: Simultaneous search on **Justdial, IndiaMART, Sulekha**.
-    2. **Validation**: **All Valid Phone Numbers** (Mobile & Landline) are captured.
+    2. **Validation**: **Valid Phones** (Mobiles & acceptable Landlines). Filters '01...' landlines.
     3. **Deep Research**: Visits **ZaubaCorp** & **Startup India** to find Directors/Founders.
     4. **Scoring**: 🥇 **Gold Medal** assigned if Leads have Phone + Director + Website.
     """)
