@@ -356,6 +356,50 @@ def find_website(company_name, api_key):
 # CORE LOGIC
 # ==========================================
 
+def get_employee_count(company_name, api_key):
+    """
+    Searches Google for LinkedIn employee count.
+    Returns: (count, snippet_text, linkedin_url)
+    """
+    url = "https://google.serper.dev/search"
+    payload = json.dumps({
+        "q": f"{company_name} linkedin employee count",
+        "gl": "in"
+    })
+    headers = {
+        'X-API-KEY': api_key,
+        'Content-Type': 'application/json'
+    }
+
+    try:
+        response = requests.request("POST", url, headers=headers, data=payload)
+        data = response.json()
+        
+        organic = data.get("organic", [])
+        if not organic:
+            return None, "", None
+            
+        result = organic[0]
+        snippet = result.get("snippet", "")
+        title = result.get("title", "")
+        link = result.get("link", "")
+        full_text = snippet + " " + title
+        
+        # Extract employee count
+        emp_count = None
+        match = re.search(r"([\d,]+)(?:\+|-\d+)?\s+employees", full_text, re.IGNORECASE)
+        if match:
+            count_str = match.group(1).replace(',', '')
+            try:
+                emp_count = int(count_str)
+            except ValueError:
+                emp_count = None
+        
+        return emp_count, snippet, link
+        
+    except Exception as e:
+        return None, "", None
+
 def enrich_single_company(company):
     """
     Performs deep research on a single company:
@@ -378,6 +422,10 @@ def enrich_single_company(company):
              company["Startup"] = True
     
     company["Directors"] = directors
+
+    # 4. Get Employee Count (LinkedIn)
+    emp_count, _, _ = get_employee_count(company['Company'], SERPER_API_KEY)
+    company["Employees"] = emp_count if emp_count else "N/A"
     
     return company
 
@@ -511,6 +559,7 @@ else:
                 with col1:
                     st.markdown(f"**📱 Mobile:** `{company.get('Mobile')}`")
                     st.markdown(f"**🏷️ Category:** {company.get('Category')}")
+                    st.markdown(f"**👥 Employees:** {company.get('Employees', 'N/A')}")
                     
                 with col2:
                     website = company.get('Website')
