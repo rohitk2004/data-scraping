@@ -4,7 +4,9 @@ import requests
 import json
 import time
 import random
+import re
 from bs4 import BeautifulSoup
+from scrapers import multi_source_search
 
 
 # ==========================================
@@ -172,27 +174,9 @@ st.markdown("""
 # API FUNCTIONS
 # ==========================================
 
-def is_mobile_number(phone):
-    """
-    Checks if a phone number is likely an Indian mobile number.
-    Mobile numbers usually start with 6, 7, 8, 9 (10 digits).
-    Landlines usually start with 0 or have STD codes.
-    """
-    if not phone or phone == "N/A":
-        return False
-        
-    # Remove junk characters
-    clean_num = ''.join(filter(str.isdigit, str(phone)))
-    
-    # Handle Country Code (+91)
-    if clean_num.startswith('91') and len(clean_num) > 10:
-        clean_num = clean_num[2:]
-        
-    # Mobile check: 10 digits, starts with 6-9
-    if len(clean_num) == 10 and clean_num[0] in ['6', '7', '8', '9']:
-        return True
-        
-    return False
+# Mobile validation moved to scrapers.py, but keeping a helper here if needed for UI
+def is_valid_mobile_display(phone):
+    return True if phone and len(str(phone)) == 10 else False
 
 def get_50_companies_from_serper(pincode, api_key):
     """
@@ -213,116 +197,16 @@ def get_50_companies_from_serper(pincode, api_key):
         'Content-Type': 'application/json'
     }
     
-def get_50_companies_from_serper(pincode, api_key):
+def discover_companies(pincode):
     """
-    Fetches companies using specific High-Pain HCM categories.
+    Uses the Multi-Source Scraper (Justdial, IndiaMART, Sulekha).
     """
-    all_results = []
-    seen_ids = set()
-    total_found = 0
-    landlines_filtered = 0
+    categories = ["BPO", "Corporate House", "Hospital", "Manufacturing", "Manpower"]
     
-    categories = [
-        "BPO companies",
-        "Construction firms", 
-        "Private Hospitals",
-        "Manufacturing units"
-    ]
-    
-    headers = {
-        'X-API-KEY': api_key,
-        'Content-Type': 'application/json'
-    }
-    
-    # 1. Specific Category Search
-    for category in categories:
-        for page in range(1, 2): # Reduced to 1 page per category to save time/credits if fallback needed
-            if len(all_results) >= 50:
-                break
-                
-            url = "https://google.serper.dev/places"
-            payload = json.dumps({
-                "q": f"{category} in {pincode}",
-                "location": f"{pincode}, India",
-                "page": page
-            })
-            
-            try:
-                response = requests.request("POST", url, headers=headers, data=payload)
-                response.raise_for_status()
-                data = response.json()
-                
-                places = data.get("places", [])
-                if not places:
-                    break
-                    
-                for place in places:
-                    total_found += 1
-                    cid = place.get("cid") or place.get("title")
-                    phone = place.get("phoneNumber", "N/A")
-                    
-                    if cid not in seen_ids:
-                        # Include all companies regardless of phone type
-                        seen_ids.add(cid)
-                        all_results.append({
-                            "Company Name": place.get("title"),
-                            "Address": place.get("address"),
-                            "Phone Number": phone,
-                            "Website": place.get("website", "N/A"),
-                            "Rating": place.get("rating", "N/A"),
-                            "Type": place.get("type", "N/A"),
-                            "Category": category, 
-                            "Directors": [], 
-                            "Lead Score": 0,
-                            "Tier": "Standard" 
-                        })
-            except Exception as e:
-                pass
-            
-            time.sleep(0.2)
-            
-    # 2. Fallback: Generic Search if results are low
-    if len(all_results) < 5:
-        # st.toast("Switching to generic search to find more results...")
-        url = "https://google.serper.dev/places"
-        # Try generic "companies"
-        payload = json.dumps({
-             "q": f"companies in {pincode}",
-             "location": f"{pincode}, India"
-        })
-        try:
-            response = requests.request("POST", url, headers=headers, data=payload)
-            data = response.json()
-            places = data.get("places", [])
-            for place in places:
-                total_found += 1
-                cid = place.get("cid") or place.get("title")
-                phone = place.get("phoneNumber", "N/A")
-                if cid not in seen_ids:
-                    seen_ids.add(cid)
-                    all_results.append({
-                        "Company Name": place.get("title"),
-                        "Address": place.get("address"),
-                        "Phone Number": phone,
-                        "Website": place.get("website", "N/A"),
-                        "Rating": place.get("rating", "N/A"),
-                        "Type": place.get("type", "N/A"),
-                        "Category": "General", 
-                        "Directors": [], 
-                        "Lead Score": 0,
-                        "Tier": "Standard" 
-                    })
-        except:
-            pass
-            
-    # Store stats in session state to display to user if needed
-    st.session_state['last_search_stats'] = {
-        'total_found': total_found,
-        'landlines_filtered': landlines_filtered,
-        'mobiles_kept': len(all_results)
-    }
-            
-    return all_results[:50]
+    with st.spinner(f"🕵️ Searching across Justdial, IndiaMART, and Sulekha for {pincode}..."):
+         results = multi_source_search(pincode, categories)
+         
+    return results
 
 def is_small_retail_shop(company):
     # ... existing implementation ...
@@ -399,6 +283,57 @@ def get_zauba_directors(company_name, api_key):
     except Exception as e:
         return []
 
+def get_startup_india_founders(company_name, api_key):
+    """
+    Search Startup India for Founder details if potential startup.
+    """
+    url = "https://google.serper.dev/search"
+    payload = json.dumps({
+        "q": f"site:startupindia.gov.in {company_name} founder",
+        "gl": "in"
+    })
+    headers = {
+        'X-API-KEY': api_key,
+        'Content-Type': 'application/json'
+    }
+    
+    founders = []
+    try:
+        response = requests.request("POST", url, headers=headers, data=payload)
+        data = response.json()
+        if "organic" in data:
+            for item in data["organic"][:2]:
+                snippet = item.get("snippet", "")
+                # Simple extraction: Look for names after keywords
+                # This is heuristic
+                if "Founder" in snippet or "Director" in snippet:
+                    founders.append(item.get("title").split("-")[0].strip())
+    except:
+        pass
+    return list(set(founders))
+
+def find_website(company_name, api_key):
+    """Finds website if missing."""
+    url = "https://google.serper.dev/search"
+    payload = json.dumps({
+        "q": f"{company_name} official website",
+        "gl": "in"
+    })
+    headers = {
+        'X-API-KEY': api_key,
+        'Content-Type': 'application/json'
+    }
+    try:
+        response = requests.request("POST", url, headers=headers, data=payload)
+        data = response.json()
+        if "organic" in data and len(data["organic"]) > 0:
+            link = data["organic"][0]["link"]
+            if "justdial" not in link and "indiamart" not in link and "sulekha" not in link:
+                return link
+    except:
+        pass
+    return "N/A"
+
 def get_employee_count(company_name, api_key):
     """
     Searches Google for LinkedIn employee count.
@@ -474,32 +409,35 @@ def reveal_director_contact(director_name, company_name, api_key):
         return []
 
 def calculate_lead_score(company):
-    """Calculates 0-5 star rating based on data quality."""
-    score = 1 # Start with 1
+    """
+    Assign a "Gold Medal" to leads that have a Mobile Number, a Director Name, and a Website.
+    """
+    mobile = company.get('Mobile')
+    directors = company.get('Directors', [])
+    website = company.get('Website')
     
-    # 1. Website Check
-    if company.get('Website') not in ['N/A', '', None]:
+    score = 0
+    messages = []
+    
+    # Prerequisite: Mobile (already guaranteed by scraper, but checking)
+    if mobile and mobile != "N/A":
         score += 1
         
-    # 2. Directors Found
-    directors = company.get('Directors', [])
+    # Director
     if directors and len(directors) > 0:
         score += 1
         
-    # 3. Employee Count > 50
-    emp_count = company.get('Employee Count')
-    if emp_count and isinstance(emp_count, int) and emp_count > 50:
+    # Website
+    if website and website != "N/A":
         score += 1
         
-    # 4. Tier-1 Priority Bonus
-    if company.get('Tier') == 'Tier-1 Priority':
-        score += 1.5 # Big bonus for high pain indicators
-        
-    # 5. Has LinkedIn Bonus
-    if company.get("Has_LinkedIn"):
-        score += 0.5
-        
-    return min(5, round(score, 1))
+    # Gold Medal Condition: All 3 present
+    if score == 3:
+        return "🥇 GOLD MEDAL"
+    elif score == 2:
+        return "🥈 Silver"
+    else:
+        return "🥉 Bronze"
 
 # ==========================================
 # STREAMLIT UI
@@ -532,22 +470,12 @@ with st.sidebar:
             if "enriched_data" in st.session_state:
                 del st.session_state["enriched_data"]
                 
-            with st.spinner("🔍 Discovering High-Pain HCM leads (BPOs, Manufacturing, Hospitals, Construction)..."):
-                companies = get_50_companies_from_serper(pincode, SERPER_API_KEY)
+            companies = discover_companies(pincode)
                 
             if not companies:
-                stats = st.session_state.get('last_search_stats', {})
-                if stats.get('landlines_filtered', 0) > 0:
-                     st.warning(f"⚠️ Found {stats['total_found']} companies, but all {stats['landlines_filtered']} were filtered out because they had Landline numbers (not Mobile).")
-                     st.info("Tip: Establishments in this area might primarily use landlines.")
-                else:
-                    st.warning(f"⚠️ No companies found. Searched for BPO, Construction, Hospital, Mfg & General companies.")
+                st.warning(f"⚠️ No companies found in {pincode} related to HCM categories.")
             else:
-                # Filter 1: Companies with valid websites (Optional but recommended)
-                # Filter 2: Remove small retail shops
-                quality_companies = [c for c in companies if not is_small_retail_shop(c)]
-                
-                st.session_state["discovered_data"] = quality_companies
+                st.session_state["discovered_data"] = companies
                 st.session_state["pincode"] = pincode
                 st.rerun()
 
@@ -555,10 +483,10 @@ with st.sidebar:
     st.divider()
     st.markdown("### ℹ️ How it Works")
     st.markdown("""
-    1. **Discovery**: Fetches ~50 High-Pain Leads (BPO, Mfg, Hospital, Construction).
-    2. **Selection**: You choose which to enrich.
-    3. **Enrichment**: Finds Directors, Employee Count, & "Tier-1" Signals.
-    4. **Contact**: Reveal direct mobile numbers.
+    1. **Data Sources**: Simultaneous search on **Justdial, IndiaMART, Sulekha**.
+    2. **Validation**: Only **Valid Mobile Numbers** (10 digits, starts 6-9) are kept. Landlines discarded.
+    3. **Deep Research**: Visits **ZaubaCorp** & **Startup India** to find Directors/Founders.
+    4. **Scoring**: 🥇 **Gold Medal** assigned if Leads have Mobile + Director + Website.
     """)
 
 # Main Content Area
@@ -567,15 +495,15 @@ with st.sidebar:
 if "discovered_data" not in st.session_state and "enriched_data" not in st.session_state:
     st.markdown("")
     st.markdown("")
-    st.markdown("<h1 style='text-align: center; color: #1e40af;'>Company Discovery Tool 🔍</h1>", unsafe_allow_html=True)
-    st.markdown("<p class='subtitle'>Find High-Pain HCM Leads & Decision Makers.</p>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #1e40af;'>Zero-Cost Master Lead Engine 🚀</h1>", unsafe_allow_html=True)
+    st.markdown("<p class='subtitle'>Find HCM Sales Leads with Direct Mobile Numbers.</p>", unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("""
         <div style="background-color: white; padding: 2rem; border-radius: 12px; border: 1px solid #e2e8f0; text-align: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
-            <h3>� Ready to hunt?</h3>
-            <p style="color: #64748b; margin-bottom: 1.5rem;">Enter a pincode in the sidebar to uncover high-quality BPO, Manufacturing, and Healthcare leads.</p>
+            <h3>🎯 Ready to hunt?</h3>
+            <p style="color: #64748b; margin-bottom: 1.5rem;">Enter a pincode to scrape Justdial, IndiaMART, and Sulekha instantly.</p>
             <div style="background-color: #f1f5f9; padding: 0.75rem; border-radius: 8px; font-size: 0.9rem; color: #475569;">
                 👈 <strong>Start in the Sidebar</strong>
             </div>
@@ -587,15 +515,14 @@ elif "discovered_data" in st.session_state and "enriched_data" not in st.session
     data = st.session_state["discovered_data"]
     pincode_display = st.session_state.get("pincode", "")
     
-    st.markdown(f"### 📋 Discovered High-Pain Leads in {pincode_display}")
-    st.info(f"Found {len(data)} potential companies across BPO, Construction, Hospitals, & Mfg. Select to enrich.")
+    st.markdown(f"### 📋 Discovered Leads in {pincode_display}")
+    st.info(f"Found {len(data)} unique companies with valid mobile numbers.")
     
     # Create a DataFrame for selection
     df_discovery = pd.DataFrame(data)
     
-    # Add a selection column (default True for top 10 to save time/clicks)
+    # Add a selection column (default True for top 10)
     df_discovery.insert(0, "Enrich", False)
-    # Default select top 10 valid websites
     for idx in df_discovery.index[:10]:
         df_discovery.at[idx, "Enrich"] = True
         
@@ -605,32 +532,24 @@ elif "discovered_data" in st.session_state and "enriched_data" not in st.session
         column_config={
             "Enrich": st.column_config.CheckboxColumn(
                 "Enrich?",
-                help="Select to find Directors & Employee Count",
+                help="Select to find Directors & Website",
                 default=False,
             ),
-            "Company Name": st.column_config.TextColumn("Company"),
-            "Category": st.column_config.TextColumn("Lead Type"),
-            "Website": st.column_config.LinkColumn("Website"),
+            "Company": st.column_config.TextColumn("Company"),
+            "Category": st.column_config.TextColumn("Category"),
+            "Mobile": st.column_config.TextColumn("Mobile"),
+            "Source": st.column_config.TextColumn("Source"),
         },
-        disabled=["Company Name", "Address", "Phone Number", "Website", "Rating", "Type", "Category"],
+        disabled=["Company", "Category", "Mobile", "Source"],
         hide_index=True,
         use_container_width=True
-    )
-    
-    # Download Raw Discovery Data
-    csv_discovery = pd.DataFrame(data).to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="📥 Download All Results (CSV)",
-        data=csv_discovery,
-        file_name=f'discovered_leads_{pincode_display}_{int(time.time())}.csv',
-        mime='text/csv'
     )
     
     # Button to proceed
     selected_indices = edited_df[edited_df["Enrich"]].index
     num_selected = len(selected_indices)
     
-    if st.button(f"✨ Enrich {num_selected} Selected Companies", type="primary"):
+    if st.button(f"✨ Deep Research {num_selected} Companies", type="primary"):
         if num_selected == 0:
             st.error("Please select at least one company.")
         else:
@@ -642,26 +561,25 @@ elif "discovered_data" in st.session_state and "enriched_data" not in st.session
             # Loop through selected companies
             for i, idx in enumerate(selected_indices):
                 company = data[idx]
-                status_text.text(f"Processing {i+1}/{num_selected}: {company['Company Name']}...")
+                status_text.text(f"Researching {i+1}/{num_selected}: {company['Company']}...")
                 
-                # 1. Get Employee Count & Validate with Snippet
-                emp_count, snippet, linkedin_url = get_employee_count(company['Company Name'], SERPER_API_KEY)
-                company["Employee Count"] = emp_count if emp_count else "N/A"
-                company["Has_LinkedIn"] = bool(linkedin_url)
+                # 1. Find Website (if missing)
+                company["Website"] = find_website(company['Company'], SERPER_API_KEY)
                 
-                # Check for High-Pain signals in snippet
-                snippet_lower = snippet.lower()
-                if "multiple locations" in snippet_lower or "hiring" in snippet_lower or "night shift" in snippet_lower or "urgently" in snippet_lower:
-                    company["Tier"] = "Tier-1 Priority"
-                else:
-                    company["Tier"] = "Standard"
+                # 2. Get Directors (ZaubaCorp)
+                directors = get_zauba_directors(company['Company'], SERPER_API_KEY)
                 
-                # 2. Get Directors
-                directors = get_zauba_directors(company['Company Name'], SERPER_API_KEY)
+                # 3. Get Founders (Startup India) if no directors found or just to augment
+                if not directors:
+                    founders = get_startup_india_founders(company['Company'], SERPER_API_KEY)
+                    if founders:
+                         directors.extend(founders)
+                         company["Startup"] = True
+                
                 company["Directors"] = directors
                 
-                # 3. Calculate Score
-                company["Lead Score"] = calculate_lead_score(company)
+                # 4. Calculate Score
+                company["Score"] = calculate_lead_score(company)
                 
                 enriched_companies.append(company)
                 progress_bar.progress((i + 1) / num_selected)
@@ -669,92 +587,63 @@ elif "discovered_data" in st.session_state and "enriched_data" not in st.session
             st.session_state["enriched_data"] = enriched_companies
             st.rerun()
 
-# State: Enriched Results & Contact Reveal
+# State: Enriched Results
 elif "enriched_data" in st.session_state:
     enriched = st.session_state["enriched_data"]
     
-    st.markdown("### 💎 Enriched Leads")
+    st.markdown("### 💎 Master Lead List")
     
-    if st.button("⬅️ Back to Selection"):
+    if st.button("⬅️ Back"):
         del st.session_state["enriched_data"]
         st.rerun()
         
     st.divider()
     
-    # Custom List View for "Button per Row" requirement
+    # Custom List View
     for company in enriched:
         with st.container():
-            # Layout: Title & Tier Badge
-            col_header, col_score = st.columns([0.7, 0.3])
-            with col_header:
-                st.markdown(f"### {company['Company Name']}")
-                if company.get("Tier") == "Tier-1 Priority":
-                     st.markdown('<span class="tier-badge">🔥 TIER-1 PRIORITY</span>', unsafe_allow_html=True)
-            
-            with col_score:
-                st.markdown(f"<div style='text-align: right'>{'⭐' * int(company['Lead Score'])}</div>", unsafe_allow_html=True)
-            
-            st.markdown("") # Spacer
-
-            c1, c2, c3 = st.columns([1, 1, 1])
-            
+            # Header
+            c1, c2 = st.columns([0.8, 0.2])
             with c1:
-                st.caption("DETAILS")
-                st.write(f"🏢 {company['Address']}")
-                st.write(f"🏷️ {company.get('Category', 'N/A')}")
-                
+                 st.subheader(company['Company'])
+                 st.caption(f"Source: {company.get('Source', 'Unknown')}")
             with c2:
-                st.caption("METRICS")
-                st.write(f"👥 **Employees:** {company.get('Employee Count', 'N/A')}")
-                
-                links = []
-                if company.get("Website") != "N/A":
-                    links.append(f"[Website]({company['Website']})")
-                if company.get("Has_LinkedIn"):
-                    links.append(f"✅ LinkedIn")
-                if links:
-                    st.markdown(" | ".join(links))
-                
-            with c3:
-                st.caption("DECISION MAKERS")
-                directors = company.get("Directors", [])
-                if directors:
-                    for d in directors:
-                        st.write(f"• {d}")
-                else:
-                    st.write("No directors found")
-                            
-            # Contact Reveal Section inside the card
-            st.markdown("")
-            with st.expander("🔍 Find Contact Number"):
-                if not directors:
-                    st.warning("No director names available to search.")
-                else:
-                    st.markdown("Select a director to find their contact details:")
-                    cols = st.columns(len(directors))
-                    for i, director in enumerate(directors):
-                        # Use a simpler button layout
-                        if st.button(f"Search: {director}", key=f"btn_{company['Company Name']}_{i}"):
-                            with st.spinner(f"Searching for {director}..."):
-                                results = reveal_director_contact(director, company['Company Name'], SERPER_API_KEY)
-                                if results:
-                                    for res in results:
-                                        st.success(f"**Found:** {res['title']}")
-                                        st.caption(res['snippet'])
-                                else:
-                                    st.error("No direct contact info found.")
-            # st.divider() removed for cleaner look
+                st.markdown(f"### {company.get('Score', '')}")
             
-    # Export Option
+            # Details
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.markdown(f"**📱 Mobile:** `{company.get('Mobile')}`")
+                st.markdown(f"**🏷️ Category:** {company.get('Category')}")
+                
+            with col2:
+                website = company.get('Website')
+                if website and website != "N/A":
+                    st.markdown(f"**🌐 Website:** [Link]({website})")
+                else:
+                    st.markdown("**🌐 Website:** N/A")
+                    
+            with col3:
+                directors = company.get('Directors', [])
+                if directors:
+                    st.markdown("**🕴️ Directors/Founders:**")
+                    for d in directors:
+                        st.text(f"• {d}")
+                else:
+                    st.markdown("**🕴️ Directors:** Not Found")
+            
+            st.divider()
+            
+    # Export
     df_export = pd.DataFrame(enriched)
-    # Convert lists to strings for CSV
+    # Flatten lists
     df_export["Directors"] = df_export["Directors"].apply(lambda x: ", ".join(x) if isinstance(x, list) else x)
     
     csv = df_export.to_csv(index=False).encode('utf-8')
     st.download_button(
-        label="📥 Download Enriched Data CSV",
+        label="📥 Download Master Leads CSV",
         data=csv,
-        file_name=f'hcm_leads_{int(time.time())}.csv',
+        file_name=f'master_leads_{int(time.time())}.csv',
         mime='text/csv'
     )
 
