@@ -82,6 +82,7 @@ st.markdown("""
     }
     
     /* Buttons */
+    /* Buttons */
     .stButton > button {
         background-color: #ffffff;
         color: #000000 !important;
@@ -90,13 +91,13 @@ st.markdown("""
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        transition: all 0.2s;
+        transition: none; /* Remove transition */
     }
     
     .stButton > button:hover {
-        background-color: #f2f2f2;
+        background-color: #ffffff;
         color: #000000 !important;
-        border-color: #000000;
+        border-color: #cccccc;
     }
     
     /* Primary Button Override (Start Discovery, Enrich) */
@@ -104,6 +105,12 @@ st.markdown("""
         background-color: #ff4b4b;
         color: white !important;
         border: none;
+    }
+
+    .stButton > button[kind="primary"]:hover {
+         background-color: #ff4b4b;
+         color: white !important;
+         border: none;
     }
     
     /* Result Cards */
@@ -223,12 +230,14 @@ def is_small_retail_shop(company):
 
 def get_zauba_directors(company_name, api_key):
     """
-    Scrapes director names from ZaubaCorp.
+    Extracts director names directly from Google Snippets to avoid scraping blocks (403).
     """
-    # Step 1: Find URL
-    search_url = "https://google.serper.dev/search"
+    directors = []
+    
+    # Query 1: ZaubaCorp specific
+    url = "https://google.serper.dev/search"
     payload = json.dumps({
-        "q": f"site:zaubacorp.com {company_name}",
+        "q": f"{company_name} directors site:zaubacorp.com",
         "gl": "in"
     })
     headers = {
@@ -236,60 +245,55 @@ def get_zauba_directors(company_name, api_key):
         'Content-Type': 'application/json'
     }
     
-    target_url = None
-    
     try:
-        response = requests.request("POST", search_url, headers=headers, data=payload)
+        response = requests.request("POST", url, headers=headers, data=payload)
         data = response.json()
-        if "organic" in data and len(data["organic"]) > 0:
-            target_url = data["organic"][0]["link"]
-    except Exception as e:
-        return []
+        
+        if "organic" in data:
+            for item in data["organic"][:3]:
+                snippet = item.get("snippet", "")
+                title = item.get("title", "")
+                text = f"{title} {snippet}"
+                
+                # Zauba snippet pattern: "Directors of [Company] are [Name1], [Name2]..."
+                # Heuristic: Look for names after "are" or "and"
+                if "Directors of" in text or "directors are" in text.lower():
+                     # Extract proper noun sequences
+                     # Simple approach: Split by comma and filter
+                     parts = text.split(" are ")[-1].split(".")[0].split(",")
+                     for p in parts:
+                         clean_name = re.sub(r'[^a-zA-Z\s]', '', p).strip()
+                         if len(clean_name) > 3 and len(clean_name) < 30 and "Limited" not in clean_name and "Director" not in clean_name:
+                             if clean_name not in directors:
+                                 directors.append(clean_name)
+    except:
+        pass
+        
+    # Query 2: Generic "Owner/Director" search if Zauba fails
+    if not directors:
+        try:
+            payload = json.dumps({
+                "q": f"{company_name} owner director linkedin",
+                "gl": "in"
+            })
+            response = requests.request("POST", url, headers=headers, data=payload)
+            data = response.json()
+            if "organic" in data:
+                 for item in data["organic"][:2]:
+                     title = item.get("title", "")
+                     # accepted patterns: "Name - Director - Company"
+                     if " - " in title:
+                         parts = title.split(" - ")
+                         for part in parts:
+                             # If part looks like a name (not the company name, not "Director")
+                             if part.strip() not in [company_name, "Director", "Owner", "Profile", "LinkedIn"] and len(part.split()) < 4:
+                                 if part.strip() not in directors:
+                                     directors.append(part.strip())
+                                     break # Take the first likely name
+        except:
+             pass
 
-    if not target_url:
-        return []
-        
-    # Step 2: Scrape Page
-    try:
-        scrape_headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-        page_response = requests.get(target_url, headers=scrape_headers, timeout=10)
-        soup = BeautifulSoup(page_response.content, 'lxml')
-        
-        directors = []
-        
-        # Look for table rows containing "Director"
-        rows = soup.find_all('tr')
-        for row in rows:
-            cols = row.find_all('td')
-            if len(cols) >= 3:
-                text_content = [c.get_text(strip=True) for c in cols]
-                for text in text_content:
-                    if any(x in text.lower() for x in ['director', 'managing', 'whole-time']):
-                         for col_text in text_content:
-                             if len(col_text) > 3 and col_text.replace(' ', '').isalpha() and not any(k in col_text.lower() for k in ['director', 'din', 'appointment']):
-                                 if col_text not in directors:
-                                     directors.append(col_text)
-                                     
-        # Fallback: Look for "Signatory Details"
-        h5_tags = soup.find_all('h5', string=re.compile('Signatory Details'))
-        if h5_tags:
-            parent = h5_tags[0].find_parent('div')
-            if parent:
-                parent_table = parent.find_next('table')
-                if parent_table:
-                    d_rows = parent_table.find_all('tr')
-                    for dr in d_rows[1:]: 
-                        dcs = dr.find_all('td')
-                        if len(dcs) >= 2:
-                            name = dcs[1].get_text(strip=True)
-                            if name and name not in directors:
-                                directors.append(name)
-                                
-        return directors[:3] 
-    except Exception as e:
-        return []
+    return directors[:3]
 
 def get_startup_india_founders(company_name, api_key):
     """
