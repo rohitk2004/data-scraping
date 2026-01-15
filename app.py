@@ -6,6 +6,7 @@ import time
 import random
 import re
 from bs4 import BeautifulSoup
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from scrapers import multi_source_search
 
 
