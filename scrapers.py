@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 import re
+import json
 import random
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -50,226 +51,224 @@ def is_valid_mobile_string(phone_str):
         
     return clean
 
-def fetch_url(url, use_playwright=False):
-    """
-    Fetches URL content. 
-    Retries with Playwright if standard request fails or is blocked.
-    """
-    if not use_playwright:
-        try:
-            time.sleep(random.uniform(1, 3))
-            response = requests.get(url, headers=HEADERS, timeout=15)
-            if response.status_code == 200:
-                # Basic block checks
-                lower_text = response.text.lower()
-                if "captcha" in lower_text or "access denied" in lower_text or "robot" in lower_text:
-                    pass # Fall through to Playwright
-                else:
-                    return response.text
-        except Exception as e:
-            pass # Fall through to Playwright
-
-    # Playwright Fallback
+def fetch_content_playwright(url):
+    """Robust fetch using Playwright with auto-scroll."""
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             context = browser.new_context(user_agent=HEADERS['User-Agent'])
             page = context.new_page()
             
+            # Go to URL
             try:
-                page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                page.goto(url, wait_until="domcontentloaded", timeout=45000)
+            except:
+                pass # Continue even if timeout, page might have loaded enough
                 
-                # Check for "Reveal Number" buttons and click them if possible
-                # Specific selectors for different sites
-                # Justdial: .callbutton, .contact-number
-                # IndiaMART: .pnm
-                # This is a best-effort generic clicker
-                
-                # Wait a bit for JS to load
-                page.wait_for_timeout(2000)
-                
-                content = page.content()
-            except Exception as e:
-                content = None
-                
+            # Scroll to trigger lazy loading
+            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            page.wait_for_timeout(2000)
+            
+            # Extract Contact Numbers (Click 'Show Number' buttons if found)
+            # Justdial specific
+            try:
+                page.evaluate("""
+                    document.querySelectorAll('.callbutton, .contact-number, .pnm, .duet').forEach(b => b.click());
+                """)
+                page.wait_for_timeout(1000)
+            except:
+                pass
+
+            content = page.content()
             browser.close()
             return content
     except Exception as e:
+        print(f"Playwright error: {e}")
         return None
 
-def scrape_justdial(category, pincode):
-    """Scrape Justdial for a category and pincode."""
-    base_url = f"https://www.justdial.com/India/Search"
-    # Justdial search format: "Category in Pincode" usually works well
-    query = f"{category} in {pincode}"
-    url = f"{base_url}?q={query}"
-    
-    html = fetch_url(url)
+def extract_from_html_fuzzy(html, source_name, category):
+    """
+    Scrapes companies using heuristic patterns (Heading + Phone proximity).
+    Useful when CSS classes change.
+    """
     results = []
-    
-    if not html:
-        return results
-        
     soup = BeautifulSoup(html, 'html.parser')
     
-    # Justdial selectors (these change, trying generic classes)
-    # Look for result cards
-    cards = soup.select('.resultbox_info') or soup.find_all('div', class_=lambda c: c and 'store-details' in c) or soup.select('.lxT77') # 2024 classes
+    # 1. Split into probable blocks (headings, divs, lis)
+    candidates = soup.find_all(['div', 'li', 'article', 'tr'])
     
-    if not cards:
-        # Try generic article or list items
-        cards = soup.find_all('div', class_=re.compile(r'result|card|store'))
+    seen_mobiles = set()
     
-    for card in cards:
-        try:
-            name_tag = card.find('h2') or card.find('div', class_='store-name') or card.find('span', class_='lng_cont_name')
-            if not name_tag:
-                continue
-            name = name_tag.get_text(strip=True)
-            
-            # Phone extraction is tricky on JD. Sometimes in icons, sometimes text.
-            # We look for typical phone patterns in the whole card text first
-            card_text = card.get_text(" ", strip=True)
-            phones = re.findall(r'\b[6-9]\d{9}\b', card_text)
-            
-            # Filter valid mobiles
-            valid_mobile = None
-            for p in phones:
-                if is_valid_mobile_string(p):
-                    valid_mobile = is_valid_mobile_string(p)
-                    break
-            
-            if valid_mobile and name:
-                results.append({
-                    "Company": name,
-                    "Category": category,
-                    "Mobile": valid_mobile,
-                    "Source": "Justdial",
-                    "Raw_Phone": valid_mobile # For scoring
-                })
-        except:
+    for card in candidates:
+        text = card.get_text(" ", strip=True)
+        if len(text) < 20 or len(text) > 1000: # Filter too small/big blocks
             continue
             
-    return results
-
-def scrape_indiamart(category, pincode):
-    """Scrape IndiaMART."""
-    # IndiaMART search
-    # https://dir.indiamart.com/search.mp?ss=BPO&cq=560001
-    url = f"https://dir.indiamart.com/search.mp?ss={category}&cq={pincode}"
-    
-    html = fetch_url(url)
-    results = []
-    
-    if not html:
-        return results
-        
-    soup = BeautifulSoup(html, 'html.parser')
-    
-    # IndiaMART selectors
-    # Listing cards
-    cards = soup.select('.lst_cl') or soup.select('.clg')
-    
-    for card in cards:
-        try:
-            name_tag = card.select_one('.cname') or card.find('a', class_='cname') or card.find('h4')
-            if not name_tag:
-                continue
-            name = name_tag.get_text(strip=True)
+        # Check for phone number
+        phones = re.findall(r'(?:\+91|0)?\s?[6-9]\d{4}\s?\d{5}', text)
+        if not phones:
+            phones = re.findall(r'\b[6-9]\d{9}\b', text)
             
-            # Phone
-            # Often in <span class="pnm"> or similar
-            # Sometimes hidden behind "Call Now"
-            phone_tag = card.select_one('.pnm') or card.select_one('.duet')
-            phone_text = ""
-            if phone_tag:
-                phone_text = phone_tag.get_text(strip=True)
-            else:
-                phone_text = card.get_text(" ", strip=True)
+        valid_mobile = None
+        for p in phones:
+            clean = is_valid_mobile_string(p)
+            if clean:
+                valid_mobile = clean
+                break
+        
+        if valid_mobile and valid_mobile not in seen_mobiles:
+            # Found a mobile! Now find the name.
+            # Look for checking H tags inside this card or strong/b tags
+            name = None
+            
+            # Strategy A: Heading tag
+            head = card.find(['h1', 'h2', 'h3', 'h4', 'a'])
+            if head:
+                name = head.get_text(strip=True)
                 
-            phones = re.findall(r'\b[6-9]\d{9}\b', phone_text)
-             # Filter valid mobiles
-            valid_mobile = None
-            for p in phones:
-                if is_valid_mobile_string(p):
-                    valid_mobile = is_valid_mobile_string(p)
-                    break
-                    
-            if valid_mobile and name:
+            # Strategy B: First bold text
+            if not name:
+                bold = card.find(['b', 'strong'])
+                if bold:
+                    name = bold.get_text(strip=True)
+            
+            if name and len(name) > 3 and "search" not in name.lower():
+                seen_mobiles.add(valid_mobile)
                 results.append({
                     "Company": name,
                     "Category": category,
                     "Mobile": valid_mobile,
-                    "Source": "IndiaMART",
-                     "Raw_Phone": valid_mobile
+                    "Source": source_name,
+                    "Raw_Phone": valid_mobile
                 })
-        except:
-            continue
-            
+                
     return results
 
-def scrape_sulekha(category, pincode):
-    """Scrape Sulekha."""
-    # Sulekha search: https://www.sulekha.com/search/local?q={category}&location={pincode}
-    # Sulekha often requires city name. Pincode might redirect.
-    url = f"https://www.sulekha.com/search/local?q={category}&location={pincode}"
+def google_proxy_search(category, pincode, source_domain, api_key):
+    """
+    Uses Google (Serper) to find pages on the target site when direct scraping is blocked.
+    Query: site:justdial.com "Category" "Pincode"
+    """
+    url = "https://google.serper.dev/search"
+    query = f"site:{source_domain} {category} {pincode}"
     
-    html = fetch_url(url)
+    payload = json.dumps({
+        "q": query,
+        "gl": "in",
+        "num": 100 # Fetch 100 results per source
+    })
+    headers = {
+        'X-API-KEY': api_key,
+        'Content-Type': 'application/json'
+    }
+    
     results = []
-    
-    if not html:
-        return results
+    try:
+        response = requests.request("POST", url, headers=headers, data=payload)
+        data = response.json()
         
-    soup = BeautifulSoup(html, 'html.parser')
-    
-    # Sulekha selectors
-    cards = soup.select('.service-card') or soup.select('.business-item') or soup.select('.listing-item')
-    
-    if not cards:
-        cards = soup.find_all('div', class_=re.compile(r'card|listing'))
-
-    for card in cards:
-        try:
-            name_tag = card.find('h3') or card.find('a', title=True)
-            if not name_tag:
-                continue
-            name = name_tag.get_text(strip=True)
-            
-            # Phone: Often requires "View Mobile" click or is in data attributes
-            phone_text = card.get_text(" ", strip=True)
-            phones = re.findall(r'\b[6-9]\d{9}\b', phone_text)
-            
-            valid_mobile = None
-            for p in phones:
-                if is_valid_mobile_string(p):
-                    valid_mobile = is_valid_mobile_string(p)
-                    break
-            
-            if valid_mobile and name:
-                 results.append({
-                    "Company": name,
-                    "Category": category,
-                    "Mobile": valid_mobile,
-                    "Source": "Sulekha",
-                     "Raw_Phone": valid_mobile
-                })
-        except:
-            continue
-            
+        if "organic" in data:
+            for item in data["organic"]:
+                title = item.get("title", "")
+                snippet = item.get("snippet", "")
+                link = item.get("link", "")
+                
+                # Combine title and snippet for phone extraction
+                full_text = f"{title} {snippet}"
+                
+                # Extract Phone
+                phones = re.findall(r'(?:\+91|0)?\s?[6-9]\d{4}\s?\d{5}', full_text)
+                if not phones:
+                    phones = re.findall(r'\b[6-9]\d{9}\b', full_text)
+                    
+                valid_mobile = None
+                for p in phones:
+                    clean = is_valid_mobile_string(p)
+                    if clean:
+                        valid_mobile = clean
+                        break
+                
+                # If we found a mobile, Great!
+                # If not, we might still want the link to Deep Scrape it later? 
+                # For now, let's only keep ones with numbers in snippet to be fast (Zero Cost spirit)
+                # Or if the user wants deep research, we can visit the link. 
+                # Let's trust the snippet for now.
+                
+                if valid_mobile:
+                    # Clean Company Name (remove " - Justdial" etc)
+                    clean_name = title.split(" - ")[0].split(" | ")[0]
+                    
+                    results.append({
+                        "Company": clean_name,
+                        "Category": category,
+                        "Mobile": valid_mobile,
+                        "Source": f"{source_domain} (via Google)",
+                        "Raw_Phone": valid_mobile,
+                        "Website": link
+                    })
+    except Exception as e:
+        print(f"Google Proxy Error for {source_domain}: {e}")
+        
     return results
 
-def multi_source_search(pincode, categories):
+def scrape_justdial(category, pincode, api_key=None):
+    """Scrape Justdial."""
+    # 1. Try Google Proxy First (Most reliable for Justdial which blocks brutally)
+    if api_key:
+        return google_proxy_search(category, pincode, "justdial.com", api_key)
+
+    # 2. Fallback to direct (will likely fail but kept for integrity)
+    url = f"https://www.justdial.com/India/Search?q={category}&location={pincode}"
+    content = fetch_content_playwright(url)
+    if content:
+        return extract_from_html_fuzzy(content, "Justdial", category)
+    return []
+
+def scrape_indiamart(category, pincode, api_key=None):
+    """Scrape IndiaMART."""
+    # 1. Try Google Proxy
+    results = []
+    if api_key:
+        results = google_proxy_search(category, pincode, "indiamart.com", api_key)
+        if results: return results
+
+    # 2. Direct Search
+    url = f"https://dir.indiamart.com/search.mp?ss={category}&cq={pincode}"
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=10)
+        if resp.status_code == 200:
+            return extract_from_html_fuzzy(resp.text, "IndiaMART", category)
+    except:
+        pass
+    content = fetch_content_playwright(url)
+    if content:
+        return extract_from_html_fuzzy(content, "IndiaMART", category)
+    return []
+
+def scrape_sulekha(category, pincode, api_key=None):
+    """Scrape Sulekha."""
+    if api_key:
+        results = google_proxy_search(category, pincode, "sulekha.com", api_key)
+        if results: return results
+
+    url = f"https://www.sulekha.com/search/local?q={category}&location={pincode}"
+    content = fetch_content_playwright(url)
+    if content:
+        return extract_from_html_fuzzy(content, "Sulekha", category)
+    return []
+
+def multi_source_search(pincode, categories, api_key=None):
     """
     Search all sources in parallel.
     """
     all_results = []
     
-    with ThreadPoolExecutor(max_workers=5) as executor:
+    with ThreadPoolExecutor(max_workers=3) as executor:
         futures = []
-        for category in categories:
-            futures.append(executor.submit(scrape_justdial, category, pincode))
-            futures.append(executor.submit(scrape_indiamart, category, pincode))
-            futures.append(executor.submit(scrape_sulekha, category, pincode))
+        for cat in categories:
+            futures.append(executor.submit(scrape_justdial, cat, pincode, api_key))
+            futures.append(executor.submit(scrape_indiamart, cat, pincode, api_key))
+            futures.append(executor.submit(scrape_sulekha, cat, pincode, api_key))
             
         for future in as_completed(futures):
             try:
@@ -277,18 +276,16 @@ def multi_source_search(pincode, categories):
                 if data:
                     all_results.extend(data)
             except Exception as e:
-                print(f"Scrape error: {e}")
+                pass
                 
-    # Deduplicate by Mobile Number (Preferred) or Company Name
+    # Deduplicate
     unique_leads = {}
     for lead in all_results:
-        # Key by mobile if available, else name
         key = lead['Mobile']
         if key not in unique_leads:
             unique_leads[key] = lead
         else:
-            # Merge sources if same mobile found in multiple places
-            if lead['Source'] not in unique_leads[key]['Source']:
+             if lead['Source'] not in unique_leads[key]['Source']:
                 unique_leads[key]['Source'] += f", {lead['Source']}"
                 
     return list(unique_leads.values())

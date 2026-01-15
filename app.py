@@ -204,7 +204,8 @@ def discover_companies(pincode):
     categories = ["BPO", "Corporate House", "Hospital", "Manufacturing", "Manpower"]
     
     with st.spinner(f"🕵️ Searching across Justdial, IndiaMART, and Sulekha for {pincode}..."):
-         results = multi_source_search(pincode, categories)
+         # Pass API Key for Google Proxy fallback
+         results = multi_source_search(pincode, categories, SERPER_API_KEY)
          
     return results
 
@@ -520,6 +521,15 @@ elif "discovered_data" in st.session_state and "enriched_data" not in st.session
     
     # Create a DataFrame for selection
     df_discovery = pd.DataFrame(data)
+    
+    # CSV Download for ALL Discovered Leads
+    csv_discovery = df_discovery.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="📥 Download All Discovered Leads (CSV)",
+        data=csv_discovery,
+        file_name=f'all_leads_{pincode_display}_{int(time.time())}.csv',
+        mime='text/csv'
+    )
     
     # Add a selection column (default True for top 10)
     df_discovery.insert(0, "Enrich", False)
