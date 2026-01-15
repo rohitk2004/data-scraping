@@ -362,7 +362,7 @@ def enrich_single_company(company):
     1. Find Website
     2. Find Directors (Zauba)
     3. Find Founders (Startup India)
-    4. Calculate Score
+    3. Find Founders (Startup India)
     """
     # 1. Find Website
     company["Website"] = find_website(company['Company'], SERPER_API_KEY)
@@ -479,7 +479,7 @@ else:
     if not results:
         st.warning(f"No results found for {pincode}.")
     else:
-        st.markdown(f"### 💎 Master Lead List: {pincode} ({len(results)} Leads)")
+        st.markdown(f"### Master Lead List: {pincode} ({len(results)} Leads)")
         
         # CSV Export Logic
         df_export = pd.DataFrame(results)
