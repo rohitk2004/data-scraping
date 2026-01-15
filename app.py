@@ -83,34 +83,38 @@ st.markdown("""
     
     /* Buttons */
     /* Buttons */
+    /* Buttons */
     .stButton > button {
-        background-color: #ffffff;
+        background-color: #ffffff !important;
         color: #000000 !important;
         border: 1px solid #cccccc;
         border-radius: 4px;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        transition: none; /* Remove transition */
+        transition: none;
     }
     
     .stButton > button:hover {
-        background-color: #ffffff;
+        background-color: #ffffff !important;
         color: #000000 !important;
-        border-color: #cccccc;
+        border-color: #cccccc !important;
     }
     
     /* Primary Button Override (Start Discovery, Enrich) */
-    .stButton > button[kind="primary"] {
-        background-color: #ff4b4b;
-        color: white !important;
-        border: none;
+    /* Check for Streamlit's primary button class injection or use attribute selector */
+    div[data-testid="stForm"] .stButton > button,
+    button[kind="primary"] {
+        background-color: #ff4b4b !important;
+        color: #ffffff !important;
+        border: none !important;
     }
-
-    .stButton > button[kind="primary"]:hover {
-         background-color: #ff4b4b;
-         color: white !important;
-         border: none;
+    
+    div[data-testid="stForm"] .stButton > button:hover,
+    button[kind="primary"]:hover {
+        background-color: #ff4b4b !important;
+        color: #ffffff !important;
+        box-shadow: none !important;
     }
     
     /* Result Cards */
@@ -230,7 +234,8 @@ def is_small_retail_shop(company):
 
 def get_zauba_directors(company_name, api_key):
     """
-    Extracts director names directly from Google Snippets to avoid scraping blocks (403).
+    Extracts director names directly from Google Snippets.
+    Updated for robust Zauba patterns.
     """
     directors = []
     
@@ -255,17 +260,19 @@ def get_zauba_directors(company_name, api_key):
                 title = item.get("title", "")
                 text = f"{title} {snippet}"
                 
-                # Zauba snippet pattern: "Directors of [Company] are [Name1], [Name2]..."
-                # Heuristic: Look for names after "are" or "and"
-                if "Directors of" in text or "directors are" in text.lower():
-                     # Extract proper noun sequences
-                     # Simple approach: Split by comma and filter
+                # Pattern A: "Directors of ... are Name1, Name2"
+                if "are" in text and "Directors of" in text:
                      parts = text.split(" are ")[-1].split(".")[0].split(",")
                      for p in parts:
-                         clean_name = re.sub(r'[^a-zA-Z\s]', '', p).strip()
-                         if len(clean_name) > 3 and len(clean_name) < 30 and "Limited" not in clean_name and "Director" not in clean_name:
-                             if clean_name not in directors:
-                                 directors.append(clean_name)
+                         clean = p.replace("and", "").strip()
+                         if len(clean) > 3: directors.append(clean)
+                         
+                # Pattern B: Zauba Table "DIN · NAME, Director"
+                # Looks for:  06413133 · PARAG ALLAWADI, Director
+                matches = re.findall(r'·\s([A-Z\s]+),\sDirector', text)
+                if matches:
+                    directors.extend([m.strip() for m in matches])
+                    
     except:
         pass
         
@@ -285,15 +292,21 @@ def get_zauba_directors(company_name, api_key):
                      if " - " in title:
                          parts = title.split(" - ")
                          for part in parts:
-                             # If part looks like a name (not the company name, not "Director")
                              if part.strip() not in [company_name, "Director", "Owner", "Profile", "LinkedIn"] and len(part.split()) < 4:
                                  if part.strip() not in directors:
                                      directors.append(part.strip())
-                                     break # Take the first likely name
+                                     break
         except:
              pass
 
-    return directors[:3]
+    # Clean duplicates
+    unique_directors = []
+    for d in directors:
+        d_clean = re.sub(r'[^a-zA-Z\s]', '', d).strip()
+        if d_clean and d_clean not in unique_directors and len(d_clean) > 3:
+            unique_directors.append(d_clean)
+            
+    return unique_directors[:3]
 
 def get_startup_india_founders(company_name, api_key):
     """
