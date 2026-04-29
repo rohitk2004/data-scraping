@@ -21,7 +21,7 @@ st.set_page_config(
 )
 
 # Hidden API Key (Not shown in UI)
-SERPER_API_KEY = "6520655e6ba71107f28baf4b336d74d758ed680e"
+SERPER_API_KEY = "357c753cda47db4d182f29ecbccfef2b8f88b1b8"
 
 # ==========================================
 # PREMIUM CSS — DARK GLASSMORPHISM THEME
